@@ -71,4 +71,21 @@ const consultingBox=document.getElementById('consulting-box');
 serviceSelect.addEventListener('change',()=>{const note=chargeNotes[serviceSelect.value]||'';chargeNote.textContent=note;chargeNote.hidden=!note;consultingBox.hidden=serviceSelect.value!=='Consulting';});
 const bookingForm=document.getElementById('booking-form');
 bookingForm.addEventListener('submit',()=>{const d=document.getElementById('pref-date').value;if(d){const parts=d.split('-');bookingForm.querySelector('input[name="entry.2123927639_year"]').value=parts[0];bookingForm.querySelector('input[name="entry.2123927639_month"]').value=parts[1];bookingForm.querySelector('input[name="entry.2123927639_day"]').value=parts[2];}bookingForm.hidden=true;document.getElementById('booking-done').hidden=false;});
-</script></body></html>
+</script><script>
+/* Navratri look, 11-20 Oct 2026 (device date, no network). Red, orange and gold accents plus a short festive strip. */
+(function(){
+"use strict";
+try{
+var d=new Date(),k=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+if(k<20261011||k>20261020)return;
+var st=document.createElement("style");
+st.textContent=":root{--accent:#F2C14E!important;--accent2:#FF8A00!important;--line:#6b2a1c!important;--ds-teal:#B71C1C!important}"+
+ "#navratri-strip{background:linear-gradient(90deg,#B71C1C,#E65100,#F2C14E,#E65100,#B71C1C);color:#fff;text-align:center;font:600 14px/34px system-ui,sans-serif;letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.45)}";
+document.head.appendChild(st);
+var s=document.createElement("div");s.id="navratri-strip";s.textContent="Jay Mata Di  |  Shubh Navratri";
+s.setAttribute("role","note");
+(document.body||document.documentElement).insertBefore(s,(document.body||document.documentElement).firstChild);
+}catch(e){}
+})();
+</script>
+</body></html>
