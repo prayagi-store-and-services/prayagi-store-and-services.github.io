@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Prayagi staff login</title>
+<link rel="stylesheet" href="staff.css">
+</head>
+<body>
+<main>
+<h1>Prayagi Store &amp; Services - Staff</h1>
+<p id="unavail" class="warn" hidden>Unavailable: staff login is not connected yet.</p>
+
+<section id="login">
+  <h2>Login / लॉगिन</h2>
+  <label>Email <input id="email" type="email" autocomplete="username" inputmode="email"></label>
+  <button id="send">Send code / कोड भेजें</button>
+  <div id="codebox" hidden>
+    <label>6-digit code / 6 अंकों का कोड <input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+    <button id="verify">Log in / लॉगिन</button>
+    <p class="hint">The code is emailed, works once and expires in 5 minutes.</p>
+  </div>
+  <p id="loginmsg" role="status"></p>
+  <h2>Staff login / स्टाफ लॉगिन</h2>
+  <label>Staff email <input id="p_email" type="email" autocomplete="username"></label>
+  <label>Password <input id="p_pw" type="password" autocomplete="current-password"></label>
+  <button id="pwlogin">Log in</button>
+  <details><summary>First time? Set your password with the invite from the admin</summary>
+    <label>Email <input id="i_email" type="email"></label>
+    <label>Invite code (8 digits) <input id="i_code" inputmode="numeric" maxlength="8"></label>
+    <label>New password (10+ characters) <input id="i_pw" type="password" autocomplete="new-password"></label>
+    <button id="setpw">Set password</button>
+  </details>
+  <p id="pwmsg" role="status"></p>
+  <p class="hint">Admin: use the email box above (code is emailed). Staff WhatsApp code login is not available yet.</p>
+</section>
+
+<section id="app" hidden>
+  <p><span id="who"></span> <button id="logout">Log out</button></p>
+
+  <h2>New booking / नई बुकिंग</h2>
+  <form id="bookform">
+    <label>Name <input id="b_name" maxlength="60" required></label>
+    <label>Mobile <input id="b_mobile" inputmode="numeric" maxlength="10" required></label>
+    <label>Service <input id="b_service" maxlength="80" required></label>
+    <label>Date <input id="b_date" type="date" required></label>
+    <label>Time <input id="b_time" type="time" required></label>
+    <label class="row"><input id="b_emerg" type="checkbox"> Emergency booking (Rs 50)</label>
+    <label>Note <input id="b_note" maxlength="200"></label>
+    <button type="submit">Confirm booking</button>
+  </form>
+  <p id="bookmsg" role="status"></p>
+  <p class="hint">Limits: 1-hour gap between appointments and closed days are enforced. The Google Calendar BOOKING hold is not updated by this page: add it there by hand. WhatsApp confirmation is not connected: tell the customer yourself.</p>
+
+  <h2>Appointments</h2>
+  <div id="list"></div>
+
+  <section id="admin" hidden>
+    <h2>Staff (admin) / स्टाफ</h2>
+    <form id="staffform">
+      <label>Staff email <input id="s_email" type="email" required></label>
+      <label>Name <input id="s_name" maxlength="60"></label>
+      <label>Mobile (for later WhatsApp login) <input id="s_mobile" inputmode="numeric" maxlength="10"></label>
+      <button type="submit">Add staff</button>
+    </form>
+    <p class="hint">After adding, press Invite on the staff row and hand the 8-digit code to them in person.</p>
+    <p id="invmsg" role="status"></p>
+    <div id="stafflist"></div>
+    <h2>Closed days / बंद दिन</h2>
+    <form id="closeform">
+      <label>Date <input id="c_date" type="date" required></label>
+      <label>Reason <input id="c_reason" maxlength="80"></label>
+      <button type="submit">Add closed day</button>
+    </form>
+    <div id="closelist"></div>
+  </section>
+</section>
+</main>
+<script src="staff.js"></script>
+</body>
+</html>
