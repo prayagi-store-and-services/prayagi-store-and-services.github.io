@@ -13,7 +13,10 @@ var OTP_MAX_TRIES = 3;               // wrong guesses allowed per account, then 
 var SEND_PER_EMAIL = 5;              // codes per email per 15 minutes (the 3-minute resend rule already caps it)
 var SEND_WINDOW_MS = 15 * 60 * 1000;
 var SEND_GLOBAL_PER_HOUR = 30;
-var SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+var SESSION_TTL_MS = 8 * 60 * 60 * 1000;   // absolute limit
+var IDLE_MS = 15 * 60 * 1000;               // idle limit
+var ACTIONS_PER_MIN = 40;                   // per session
+var ALERTS_PER_HOUR = 5;                    // flood limit on alert emails
 var BUFFER_MIN = 60;                 // 1-hour buffer between appointments
 var CUSTOMER_LOGIN_ENABLED = false;   // customer login stays OFF by owner order
 var MASTER_LEN = 12, MASTER_ROUNDS = 5000, MASTER_WINDOW_MS = 30 * 60 * 1000;
@@ -38,10 +41,12 @@ function doPost(e) {
       case 'loginMaster': return out_(loginMaster_(b));
       case 'forgotPassword': return out_(forgotPassword_(b));
       case 'setPassword': return out_(setPassword_(b));
+      case 'logoutAll': { var ss = session_(b.token); if (ss && !ss.rateLimited) revokeAll_(ss.email); return out_({ ok: true }); }
       case 'logout': P.deleteProperty('sess:' + hash_(b.token || '')); return out_({ ok: true });
     }
     var s = session_(b.token);
     if (!s) return out_({ ok: false, error: 'Please log in again.', relogin: true });
+    if (s.rateLimited) return out_({ ok: false, error: 'Too many actions. Wait a minute.' });
     switch (b.action) {
       case 'me': return out_({ ok: true, email: s.email, role: s.role });
       case 'listAppointments': return out_(listAppointments_());
@@ -142,19 +147,33 @@ function verifyOtp_(b) {
   if (email !== ADMIN) return bad;
   var role = 'admin';
   var token = rand_(32);
-  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: role, exp: now + SESSION_TTL_MS }));
+  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: role, exp: now + SESSION_TTL_MS, seen: now }));
   return { ok: true, token: token, role: role, email: email };
 }
 
 function session_(token) {
   if (!token) return null;
-  var k = 'sess:' + hash_(token), raw = P.getProperty(k);
+  var k = 'sess:' + hash_(token), raw = P.getProperty(k), now = Date.now();
   if (!raw) return null;
   var s = JSON.parse(raw);
-  if (Date.now() > s.exp) { P.deleteProperty(k); return null; }
+  if (now > s.exp || now - (s.seen || 0) > IDLE_MS) { P.deleteProperty(k); return null; }   // absolute 8 h, idle 15 min
   var role = roleOf_(s.email);                                 // re-check every call: disabled staff lose access at once
   if (!role) { P.deleteProperty(k); return null; }
-  s.role = role; return s;
+  s.win = (s.win || []).filter(function (t) { return now - t < 60000; });
+  if (s.win.length >= ACTIONS_PER_MIN) return { rateLimited: true };
+  s.win.push(now); s.seen = now; s.role = role;
+  P.setProperty(k, JSON.stringify(s));
+  return s;
+}
+function revokeAll_(email) {                                   // end every session of this account
+  var all = P.getProperties();
+  for (var key in all) if (key.indexOf('sess:') === 0) { try { if (JSON.parse(all[key]).email === email) P.deleteProperty(key); } catch (e) {} }
+}
+function alert_(subject, body) {                               // flood-limited alert email to the admin
+  var now = Date.now(), log = JSON.parse(P.getProperty('alertlog') || '[]').filter(function (t) { return now - t < 3600000; });
+  if (log.length >= ALERTS_PER_HOUR) return;
+  log.push(now); P.setProperty('alertlog', JSON.stringify(log));
+  MailApp.sendEmail(ADMIN, subject, body);
 }
 
 function sheet_(name) {
@@ -188,7 +207,7 @@ function addStaff_(b) {
 }
 function setStaffActive_(b) {
   var email = norm_(b.email), sh = sheet_('Staff'), rows = sh.getDataRange().getValues();
-  for (var i = 1; i < rows.length; i++) if (norm_(rows[i][0]) === email) { sh.getRange(i + 1, 3).setValue(b.active ? 'active' : 'disabled'); return { ok: true }; }
+  for (var i = 1; i < rows.length; i++) if (norm_(rows[i][0]) === email) { sh.getRange(i + 1, 3).setValue(b.active ? 'active' : 'disabled'); if (!b.active) revokeAll_(email); audit_('admin', b.active ? 'staff enabled' : 'staff disabled', email); return { ok: true }; }
   return { ok: false, error: 'Not found.' };
 }
 
@@ -262,6 +281,8 @@ function setPassword_(b) {
   st.sh.getRange(st.n, 8).setValue('');                        // invite is single use
   st.sh.getRange(st.n, 9).setValue(0);
   st.sh.getRange(st.n, 10).setValue(0);
+  revokeAll_(norm_(b.email));                                  // password change ends old sessions
+  audit_(norm_(b.email), 'password set', norm_(b.email));
   return { ok: true };
 }
 function loginPassword_(b) {
@@ -278,7 +299,7 @@ function loginPassword_(b) {
   }
   st.sh.getRange(st.n, 10).setValue(0);
   var token = rand_(32);
-  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: 'staff', exp: now + SESSION_TTL_MS }));
+  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: 'staff', exp: now + SESSION_TTL_MS, seen: now }));
   return { ok: true, token: token, role: 'staff', email: email };
 }
 
@@ -352,7 +373,7 @@ function loginMaster_(b) {
   if (now < (st.mnext || 0)) return { ok: false, error: 'Wait ' + Math.ceil((st.mnext - now) / 1000) + ' seconds before the next try.', wait: Math.ceil((st.mnext - now) / 1000) };
   var mm = JSON.parse(m), pw = String(b.password || '');
   var good = /^\d{12}$/.test(pw) && same_(mm.h, masterHash_(mm.salt, pw));
-  MailApp.sendEmail(ADMIN, 'Prayagi admin master-password attempt: ' + (good ? 'SUCCESS' : 'failed'),
+  alert_('Prayagi admin master-password attempt: ' + (good ? 'SUCCESS' : 'failed'),
     'A master-password login was ' + (good ? 'accepted' : 'tried and failed') + ' at ' + new Date().toString() + '. If this was not you, set a new master password after logging in.');
   if (!good) {
     st.mfails = (st.mfails || 0) + 1;
@@ -363,7 +384,7 @@ function loginMaster_(b) {
   }
   st.mfails = 0; st.mnext = 0; st.masterUntil = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st));
   var token = rand_(32);
-  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: ADMIN, role: 'admin', exp: now + SESSION_TTL_MS }));
+  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: ADMIN, role: 'admin', exp: now + SESSION_TTL_MS, seen: now }));
   audit_(ADMIN, 'admin login with master password', ADMIN);
   return { ok: true, token: token, role: 'admin', email: ADMIN };
 }
