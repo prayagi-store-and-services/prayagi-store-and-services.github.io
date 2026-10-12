@@ -1,0 +1,14 @@
+body{font-family:system-ui,sans-serif;margin:0;background:#f5f8f6;color:#12261a}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.2rem}h2{font-size:1.05rem;margin-top:24px}
+label{display:block;margin:10px 0;font-size:.95rem}
+label.row{display:flex;gap:8px;align-items:center}
+input{display:block;width:100%;box-sizing:border-box;padding:12px;font-size:1rem;border:1px solid #9bb;border-radius:8px;margin-top:4px}
+input[type=checkbox]{width:auto;margin:0}
+button{padding:12px 16px;font-size:1rem;border:0;border-radius:8px;background:#1b7f4b;color:#fff;margin:6px 6px 6px 0}
+button.sec{background:#555}
+.warn{background:#fff3cd;padding:10px;border-radius:8px}
+.hint{font-size:.85rem;color:#456}
+.card{background:#fff;border:1px solid #cdd;border-radius:10px;padding:10px;margin:8px 0}
+.card b{display:block}
+@media (prefers-color-scheme:dark){body{background:#101814;color:#e7f2ea}input{background:#1b2a21;color:#e7f2ea;border-color:#456}.card{background:#17231c;border-color:#345}.hint{color:#9bb}.warn{color:#222}}
