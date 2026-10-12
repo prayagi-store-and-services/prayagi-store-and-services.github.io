@@ -80,12 +80,12 @@
     $('loginmsg').textContent = 'Sending...';
     call({ action: 'requestOtp', email: $('email').value }).then(function (r) {
       $('loginmsg').textContent = r.ok ? r.message : r.error;
-      if (r.ok) $('codebox').hidden = false;
+      if (r.ok) { $('codebox').hidden = false; setTimeout(function () { $('nocode').hidden = false; }, 120000); }
     });
   };
   $('verify').onclick = function () {
     call({ action: 'verifyOtp', email: $('email').value, code: $('code').value }).then(function (r) {
-      if (!r.ok) { $('loginmsg').textContent = r.error; return; }
+      if (!r.ok) { $('loginmsg').textContent = r.error; if (r.masterAvailable) $('masterbox').hidden = false; return; }
       token = r.token; sessionStorage.setItem('pt', token); $('code').value = '';
       showApp(r.role, r.email);
     });
@@ -103,6 +103,21 @@
     });
   };
   $('u_req').onclick = function () { call({ action: 'requestUnlock', email: $('u_email').value }).then(function (r) { $('u_msg').textContent = r.ok ? r.message : r.error; }); };
+  $('nocode_btn').onclick = function () { call({ action: 'masterOption' }).then(function (r) { if (r.masterAvailable) $('masterbox').hidden = false; else $('loginmsg').textContent = 'Wait a little longer for the email, then try again.'; }); };
+  $('m_login').onclick = function () {
+    call({ action: 'loginMaster', password: $('m_pw').value }).then(function (r) {
+      $('m_pw').value = '';
+      if (!r.ok) { $('loginmsg').textContent = r.error; return; }
+      token = r.token; sessionStorage.setItem('pt', token); showApp(r.role, r.email);
+    });
+  };
+  $('m_set').onclick = function () {
+    call({ action: 'setMaster', password: $('m_new').value }).then(function (r) { $('m_new').value = ''; $('m_msg').textContent = r.ok ? 'Master password saved.' : r.error; });
+  };
+  $('custform').onsubmit = function (e) {
+    e.preventDefault();
+    call({ action: 'createCustomer', mobile: $('cu_mobile').value, name: $('cu_name').value }).then(function (r) { $('cu_msg').textContent = r.ok ? 'Customer saved.' : r.error; if (r.ok) $('custform').reset(); });
+  };
   $('logout').onclick = function () { call({ action: 'logout' }).then(showLogin); };
   $('bookform').onsubmit = function (e) {
     e.preventDefault();
