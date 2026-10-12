@@ -54,6 +54,19 @@
           c.appendChild(t); c.appendChild(iv); box.appendChild(c);
         });
       });
+      call({ action: 'listLocks' }).then(function (r) {
+        var box = $('locklist'); box.textContent = '';
+        if (!r.ok) return;
+        if (!r.locked.length && !r.requests.length) box.appendChild(el('p', 'No locked accounts.'));
+        r.locked.forEach(function (x) {
+          var c = el('div', '', 'card');
+          c.appendChild(el('span', x.email + ' locked until ' + new Date(x.until).toLocaleString()));
+          var u = el('button', 'Unlock now', 'sec');
+          u.onclick = function () { call({ action: 'unlock', email: x.email }).then(refresh); };
+          c.appendChild(u); box.appendChild(c);
+        });
+        r.requests.forEach(function (x) { box.appendChild(el('p', 'Request: ' + x.by + ' asks to unlock ' + x.target)); });
+      });
       call({ action: 'listClosures' }).then(function (r) {
         var box = $('closelist'); box.textContent = '';
         (r.closures || []).forEach(function (x) { box.appendChild(el('p', x.date + (x.reason ? ' - ' + x.reason : ''))); });
@@ -89,6 +102,7 @@
       $('pwmsg').textContent = r.ok ? 'Password set. You can log in now.' : r.error; if (r.ok) { $('i_pw').value = ''; $('i_code').value = ''; }
     });
   };
+  $('u_req').onclick = function () { call({ action: 'requestUnlock', email: $('u_email').value }).then(function (r) { $('u_msg').textContent = r.ok ? r.message : r.error; }); };
   $('logout').onclick = function () { call({ action: 'logout' }).then(showLogin); };
   $('bookform').onsubmit = function (e) {
     e.preventDefault();
