@@ -55,6 +55,12 @@
   <p class="hint">Limits: 1-hour gap between appointments and closed days are enforced. The Google Calendar BOOKING hold is not updated by this page: add it there by hand. WhatsApp confirmation is not connected: tell the customer yourself.</p>
 
   <h2>Appointments</h2>
+  <details><summary>Ask the admin to unlock someone</summary>
+    <label>Email of the locked account <input id="u_email" type="email"></label>
+    <button id="u_req">Send unlock request</button>
+    <p id="u_msg" role="status"></p>
+    <p class="hint">Only the admin can unlock. Locks also end by themselves 24 hours after they start.</p>
+  </details>
   <div id="list"></div>
 
   <section id="admin" hidden>
@@ -68,6 +74,8 @@
     <p class="hint">After adding, press Invite on the staff row and hand the 8-digit code to them in person.</p>
     <p id="invmsg" role="status"></p>
     <div id="stafflist"></div>
+    <h2>Locked accounts and unlock requests</h2>
+    <div id="locklist"></div>
     <h2>Closed days / बंद दिन</h2>
     <form id="closeform">
       <label>Date <input id="c_date" type="date" required></label>
