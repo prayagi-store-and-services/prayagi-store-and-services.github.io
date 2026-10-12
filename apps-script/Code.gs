@@ -15,7 +15,8 @@ var SEND_GLOBAL_PER_HOUR = 30;
 var SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 var BUFFER_MIN = 60;                 // 1-hour buffer between appointments
 var CUSTOMER_LOGIN_ENABLED = false;   // customer login stays OFF by owner order
-var MASTER_LEN = 12, MASTER_ROUNDS = 5000;
+var MASTER_LEN = 12, MASTER_ROUNDS = 5000, MASTER_WINDOW_MS = 30 * 60 * 1000;
+var MASTER_DELAYS_S = [30, 60, 300, 900, 3600];   // escalating wait between master-password attempts; the admin is never locked out
 var WA_ENABLED = false;              // staff WhatsApp OTP (Fast2SMS): not built, not enabled
 var LOCK_MS = 24 * 3600 * 1000;      // owner rule: 3 wrong attempts lock the account for 24 hours from the moment it locked, then it auto-releases
 var PW_MIN = 10, PW_FAILS = 3, PW_LOCK_MS = LOCK_MS, PW_ROUNDS = 3000;
@@ -32,6 +33,7 @@ function doPost(e) {
       case 'requestOtp': return out_(requestOtp_(b));
       case 'verifyOtp': return out_(verifyOtp_(b));
       case 'loginPassword': return out_(loginPassword_(b));
+      case 'masterOption': return out_(masterOption_());
       case 'loginMaster': return out_(loginMaster_(b));
       case 'forgotPassword': return out_(forgotPassword_(b));
       case 'setPassword': return out_(setPassword_(b));
@@ -104,12 +106,11 @@ function requestOtp_(b) {
   if (email !== ADMIN) return generic;                        // email OTP is admin-only; same reply for everyone else, no probing
   var role = 'admin';
   var st = JSON.parse(P.getProperty('otp:' + email) || '{}');
-  if (now < (st.lockUntil || 0)) return generic;              // locked: no new code
   var log = (st.sent || []).filter(function (t) { return now - t < SEND_WINDOW_MS; });
   if (log.length >= SEND_PER_EMAIL) return generic;
   var code = code6_();
   log.push(now); g.push(now);
-  P.setProperty('otp:' + email, JSON.stringify({ h: hash_(email + '|' + code), exp: now + OTP_TTL_MS, fails: st.fails || 0, lockUntil: st.lockUntil || 0, sent: log }));
+  P.setProperty('otp:' + email, JSON.stringify({ h: hash_(email + '|' + code), exp: now + OTP_TTL_MS, fails: 0, masterUntil: st.masterUntil || 0, sent: log }));
   P.setProperty('sendlog', JSON.stringify(g));
   MailApp.sendEmail(email, 'Prayagi staff login code',
     'Your Prayagi staff login code is ' + code + '.\nIt works once and expires in 5 minutes. If you did not ask for it, ignore this email and tell the shop owner.');
@@ -122,11 +123,15 @@ function verifyOtp_(b) {
   var raw = P.getProperty('otp:' + email);
   if (!raw || code.length !== 6) return bad;
   var st = JSON.parse(raw);
-  if (now < (st.lockUntil || 0)) return { ok: false, error: 'Too many wrong codes. This login is locked for 24 hours from the time it locked.' };
   if (now > st.exp || !st.h) return bad;                       // expired or already used: not counted as a wrong attempt
   if (!same_(st.h, hash_(email + '|' + code))) {               // only a wrong code typed against a live code counts
     st.fails = (st.fails || 0) + 1;
-    if (st.fails >= OTP_MAX_TRIES) { st.lockUntil = now + LOCK_MS; st.fails = 0; st.h = ''; st.exp = 0; audit_('system', 'locked (wrong OTP x3)', email); }
+    if (st.fails >= OTP_MAX_TRIES) {                           // admin is never locked: the code is burned, a new one must be requested, and the master-password option opens
+      st.fails = 0; st.h = ''; st.exp = 0; st.masterUntil = now + MASTER_WINDOW_MS;
+      P.setProperty('otp:' + email, JSON.stringify(st));
+      audit_('system', '3 wrong OTP attempts: master option opened', email);
+      return { ok: false, error: 'Code is wrong or expired.', masterAvailable: true };
+    }
     P.setProperty('otp:' + email, JSON.stringify(st));
     return bad;
   }
@@ -310,7 +315,7 @@ function unlock_(b, s) {
  */
 function adminUnlock() {
   var raw = P.getProperty('otp:' + ADMIN);
-  if (raw) { var st = JSON.parse(raw); st.lockUntil = 0; st.fails = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st)); }
+  if (raw) { var st = JSON.parse(raw); st.lockUntil = 0; st.fails = 0; st.mfails = 0; st.mnext = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st)); }
   audit_('script owner', 'admin unlocked', ADMIN);
 }
 
@@ -328,27 +333,36 @@ function masterHash_(salt, pw) {
   for (var i = 0; i < MASTER_ROUNDS; i++) h = b64_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h + '|' + salt + '|m'));
   return h;
 }
+/** Shown to the admin only after a code was requested and has not arrived for 2 minutes. The master field is not offered before that or before 3 wrong codes. */
+function masterOption_() {
+  var now = Date.now(), st = JSON.parse(P.getProperty('otp:' + ADMIN) || '{}');
+  var last = (st.sent || []).slice(-1)[0] || 0;
+  if (!last || now - last < 120000) return { ok: true, masterAvailable: now < (st.masterUntil || 0) };
+  st.masterUntil = now + MASTER_WINDOW_MS; P.setProperty('otp:' + ADMIN, JSON.stringify(st));
+  audit_('system', 'code not received: master option opened', ADMIN);
+  return { ok: true, masterAvailable: true };
+}
 function loginMaster_(b) {
-  var bad = { ok: false, error: 'Master password is wrong.' }, now = Date.now();
-  var email = norm_(b.email || ADMIN);
-  if (email !== ADMIN) return bad;
+  var now = Date.now(), st = JSON.parse(P.getProperty('otp:' + ADMIN) || '{}');
   var m = P.getProperty('master');
+  if (now >= (st.masterUntil || 0)) return { ok: false, error: 'Use the emailed code first.' };   // option must have been opened by 3 wrong codes or a missing code
   if (!m) return { ok: false, error: 'No master password has been set.' };
-  var st = JSON.parse(P.getProperty('otp:' + ADMIN) || '{}');        // same lock as the emailed code: one shared 3-attempt counter
-  if (now < (st.lockUntil || 0)) return { ok: false, error: 'Too many wrong attempts. This login is locked for 24 hours from the time it locked.' };
-  var mm = JSON.parse(m);
-  if (!/^\d{12}$/.test(String(b.password || '')) || !same_(mm.h, masterHash_(mm.salt, String(b.password)))) {
-    st.fails = (st.fails || 0) + 1;
-    if (st.fails >= OTP_MAX_TRIES) { st.lockUntil = now + LOCK_MS; st.fails = 0; st.h = ''; st.exp = 0; audit_('system', 'locked (wrong master password x3)', ADMIN); }
+  if (now < (st.mnext || 0)) return { ok: false, error: 'Wait ' + Math.ceil((st.mnext - now) / 1000) + ' seconds before the next try.', wait: Math.ceil((st.mnext - now) / 1000) };
+  var mm = JSON.parse(m), pw = String(b.password || '');
+  var good = /^\d{12}$/.test(pw) && same_(mm.h, masterHash_(mm.salt, pw));
+  MailApp.sendEmail(ADMIN, 'Prayagi admin master-password attempt: ' + (good ? 'SUCCESS' : 'failed'),
+    'A master-password login was ' + (good ? 'accepted' : 'tried and failed') + ' at ' + new Date().toString() + '. If this was not you, set a new master password after logging in.');
+  if (!good) {
+    st.mfails = (st.mfails || 0) + 1;
+    st.mnext = now + MASTER_DELAYS_S[Math.min(st.mfails - 1, MASTER_DELAYS_S.length - 1)] * 1000;
     P.setProperty('otp:' + ADMIN, JSON.stringify(st));
-    return bad;
+    audit_('system', 'master password wrong (attempt ' + st.mfails + ')', ADMIN);
+    return { ok: false, error: 'Master password is wrong.' };
   }
-  st.fails = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st));
+  st.mfails = 0; st.mnext = 0; st.masterUntil = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st));
   var token = rand_(32);
   P.setProperty('sess:' + hash_(token), JSON.stringify({ email: ADMIN, role: 'admin', exp: now + SESSION_TTL_MS }));
   audit_(ADMIN, 'admin login with master password', ADMIN);
-  MailApp.sendEmail(ADMIN, 'Prayagi admin login with the master password',
-    'The admin master password was just used to log in at ' + new Date().toString() + '. If this was not you, change the master password and run adminUnlock review in Apps Script.');
   return { ok: true, token: token, role: 'admin', email: ADMIN };
 }
 
