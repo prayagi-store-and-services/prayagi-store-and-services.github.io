@@ -8,14 +8,15 @@
  */
 var ADMIN = 'prayagijanseva@gmail.com';
 var OTP_TTL_MS = 5 * 60 * 1000;      // code valid 5 minutes
-var OTP_MAX_TRIES = 5;               // wrong guesses per code
+var OTP_MAX_TRIES = 3;               // wrong guesses allowed per account, then locked
 var SEND_PER_EMAIL = 3;              // codes per email per 15 minutes
 var SEND_WINDOW_MS = 15 * 60 * 1000;
 var SEND_GLOBAL_PER_HOUR = 30;
 var SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 var BUFFER_MIN = 60;                 // 1-hour buffer between appointments
 var WA_ENABLED = false;              // staff WhatsApp OTP (Fast2SMS): not built, not enabled
-var PW_MIN = 10, PW_FAILS = 5, PW_LOCK_MS = 15 * 60 * 1000, PW_ROUNDS = 3000;
+var LOCK_MS = 24 * 3600 * 1000;      // owner rule: 3 wrong attempts lock the account for 24 hours from the moment it locked, then it auto-releases
+var PW_MIN = 10, PW_FAILS = 3, PW_LOCK_MS = LOCK_MS, PW_ROUNDS = 3000;
 var P = PropertiesService.getScriptProperties();
 
 function doGet() { return out_({ ok: true, service: 'prayagi-staff' }); }
@@ -94,11 +95,12 @@ function requestOtp_(b) {
   if (email !== ADMIN) return generic;                        // email OTP is admin-only; same reply for everyone else, no probing
   var role = 'admin';
   var st = JSON.parse(P.getProperty('otp:' + email) || '{}');
+  if (now < (st.lockUntil || 0)) return generic;              // locked: no new code
   var log = (st.sent || []).filter(function (t) { return now - t < SEND_WINDOW_MS; });
   if (log.length >= SEND_PER_EMAIL) return generic;
   var code = code6_();
   log.push(now); g.push(now);
-  P.setProperty('otp:' + email, JSON.stringify({ h: hash_(email + '|' + code), exp: now + OTP_TTL_MS, tries: 0, sent: log }));
+  P.setProperty('otp:' + email, JSON.stringify({ h: hash_(email + '|' + code), exp: now + OTP_TTL_MS, fails: st.fails || 0, lockUntil: st.lockUntil || 0, sent: log }));
   P.setProperty('sendlog', JSON.stringify(g));
   MailApp.sendEmail(email, 'Prayagi staff login code',
     'Your Prayagi staff login code is ' + code + '.\nIt works once and expires in 5 minutes. If you did not ask for it, ignore this email and tell the shop owner.');
@@ -111,9 +113,15 @@ function verifyOtp_(b) {
   var raw = P.getProperty('otp:' + email);
   if (!raw || code.length !== 6) return bad;
   var st = JSON.parse(raw);
-  if (now > st.exp || st.tries >= OTP_MAX_TRIES) { st.h = ''; st.exp = 0; P.setProperty('otp:' + email, JSON.stringify(st)); return bad; }
-  st.tries++;
-  if (!st.h || !same_(st.h, hash_(email + '|' + code))) { P.setProperty('otp:' + email, JSON.stringify(st)); return bad; }
+  if (now < (st.lockUntil || 0)) return { ok: false, error: 'Too many wrong codes. This login is locked for 24 hours from the time it locked.' };
+  if (now > st.exp || !st.h) return bad;                       // expired or already used: not counted as a wrong attempt
+  if (!same_(st.h, hash_(email + '|' + code))) {               // only a wrong code typed against a live code counts
+    st.fails = (st.fails || 0) + 1;
+    if (st.fails >= OTP_MAX_TRIES) { st.lockUntil = now + LOCK_MS; st.fails = 0; st.h = ''; st.exp = 0; }
+    P.setProperty('otp:' + email, JSON.stringify(st));
+    return bad;
+  }
+  st.fails = 0;
   st.h = ''; st.exp = 0; P.setProperty('otp:' + email, JSON.stringify(st));   // single use
   if (email !== ADMIN) return bad;
   var role = 'admin';
@@ -244,7 +252,7 @@ function loginPassword_(b) {
   var email = norm_(b.email), now = Date.now();
   var st = staffRow_(email);
   if (!st || String(st.r[2]) !== 'active' || !st.r[6]) return bad;
-  if (now < Number(st.r[10] || 0)) return { ok: false, error: 'Too many wrong tries. Wait 15 minutes.' };
+  if (now < Number(st.r[10] || 0)) return { ok: false, error: 'Too many wrong tries. This account is locked for 24 hours from the time it locked.' };
   if (!same_(String(st.r[6]), pw_(String(st.r[5]), String(b.password || '')))) {
     var f = Number(st.r[9] || 0) + 1;
     st.sh.getRange(st.n, 10).setValue(f >= PW_FAILS ? 0 : f);
