@@ -7,9 +7,10 @@
  * The code is never logged, never shown in a response, and is stored only as a salted hash.
  */
 var ADMIN = 'prayagijanseva@gmail.com';
-var OTP_TTL_MS = 5 * 60 * 1000;      // code valid 5 minutes
+var OTP_TTL_MS = 10 * 60 * 1000;     // code valid 10 minutes (matches the WhatsApp template text)
+var RESEND_MS = 3 * 60 * 1000;       // a new code can be requested only 3 minutes after the last one; the new code replaces the old
 var OTP_MAX_TRIES = 3;               // wrong guesses allowed per account, then locked
-var SEND_PER_EMAIL = 3;              // codes per email per 15 minutes
+var SEND_PER_EMAIL = 5;              // codes per email per 15 minutes (the 3-minute resend rule already caps it)
 var SEND_WINDOW_MS = 15 * 60 * 1000;
 var SEND_GLOBAL_PER_HOUR = 30;
 var SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -99,7 +100,7 @@ function roleOf_(email) {
 
 function requestOtp_(b) {
   var email = norm_(b.email), now = Date.now();
-  var generic = { ok: true, message: 'If this email is registered, a code has been sent. It is valid for 5 minutes.' };
+  var generic = { ok: true, message: 'If this email is registered, a code has been sent. It is valid for 10 minutes. You can ask for a new one after 3 minutes.' };
   if (!validEmail_(email)) return generic;
   var g = JSON.parse(P.getProperty('sendlog') || '[]').filter(function (t) { return now - t < 3600000; });
   if (g.length >= SEND_GLOBAL_PER_HOUR) return generic;
@@ -108,12 +109,13 @@ function requestOtp_(b) {
   var st = JSON.parse(P.getProperty('otp:' + email) || '{}');
   var log = (st.sent || []).filter(function (t) { return now - t < SEND_WINDOW_MS; });
   if (log.length >= SEND_PER_EMAIL) return generic;
+  if (log.length && now - log[log.length - 1] < RESEND_MS) return { ok: true, message: 'A code was just sent. You can ask for a new one after 3 minutes; the new code replaces the old one.' };
   var code = code6_();
   log.push(now); g.push(now);
   P.setProperty('otp:' + email, JSON.stringify({ h: hash_(email + '|' + code), exp: now + OTP_TTL_MS, fails: 0, masterUntil: st.masterUntil || 0, sent: log }));
   P.setProperty('sendlog', JSON.stringify(g));
   MailApp.sendEmail(email, 'Prayagi staff login code',
-    'Your Prayagi staff login code is ' + code + '.\nIt works once and expires in 5 minutes. If you did not ask for it, ignore this email and tell the shop owner.');
+    'Your Prayagi staff login code is ' + code + '.\nIt works once and expires in 10 minutes. A newer code replaces this one. If you did not ask for it, ignore this email and tell the shop owner.');
   return generic;
 }
 
