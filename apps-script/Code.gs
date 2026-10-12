@@ -44,6 +44,9 @@ function doPost(e) {
       case 'addStaff': return out_(admin_(s) || addStaff_(b));
       case 'createInvite': return out_(admin_(s) || createInvite_(b));
       case 'setStaffActive': return out_(admin_(s) || setStaffActive_(b));
+      case 'requestUnlock': return out_(requestUnlock_(b, s));
+      case 'listLocks': return out_(admin_(s) || listLocks_());
+      case 'unlock': return out_(admin_(s) || unlock_(b, s));
       case 'listClosures': return out_(listClosures_());
       case 'addClosure': return out_(admin_(s) || addClosure_(b));
     }
@@ -117,7 +120,7 @@ function verifyOtp_(b) {
   if (now > st.exp || !st.h) return bad;                       // expired or already used: not counted as a wrong attempt
   if (!same_(st.h, hash_(email + '|' + code))) {               // only a wrong code typed against a live code counts
     st.fails = (st.fails || 0) + 1;
-    if (st.fails >= OTP_MAX_TRIES) { st.lockUntil = now + LOCK_MS; st.fails = 0; st.h = ''; st.exp = 0; }
+    if (st.fails >= OTP_MAX_TRIES) { st.lockUntil = now + LOCK_MS; st.fails = 0; st.h = ''; st.exp = 0; audit_('system', 'locked (wrong OTP x3)', email); }
     P.setProperty('otp:' + email, JSON.stringify(st));
     return bad;
   }
@@ -148,7 +151,7 @@ function sheet_(name) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-    var heads = { Staff: ['email', 'name', 'status', 'added', 'mobile', 'pwsalt', 'pwhash', 'invitehash', 'inviteexp', 'fails', 'lockuntil'], Appointments: ['id', 'name', 'mobile', 'service', 'date', 'time', 'emergency', 'status', 'note', 'by', 'created'], Closures: ['date', 'reason'] };
+    var heads = { Audit: ['time', 'actor', 'action', 'target'], Unlocks: ['id', 'target', 'requestedBy', 'time', 'status'], Staff: ['email', 'name', 'status', 'added', 'mobile', 'pwsalt', 'pwhash', 'invitehash', 'inviteexp', 'fails', 'lockuntil'], Appointments: ['id', 'name', 'mobile', 'service', 'date', 'time', 'emergency', 'status', 'note', 'by', 'created'], Closures: ['date', 'reason'] };
     sh.appendRow(heads[name]);
     if (name === 'Appointments') sh.getRange('E:F').setNumberFormat('@');   // keep date and time as plain text
     if (name === 'Closures') sh.getRange('A:A').setNumberFormat('@');
@@ -167,6 +170,7 @@ function addStaff_(b) {
   var sh = sheet_('Staff'), rows = sh.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) if (norm_(rows[i][0]) === email) { sh.getRange(i + 1, 3).setValue('active'); return { ok: true }; }
   sh.appendRow([email, clean_(b.name, 60), 'active', new Date(), clean_(b.mobile, 15)]);
+  audit_('admin', 'staff added', email);
   return { ok: true };
 }
 function setStaffActive_(b) {
@@ -256,11 +260,50 @@ function loginPassword_(b) {
   if (!same_(String(st.r[6]), pw_(String(st.r[5]), String(b.password || '')))) {
     var f = Number(st.r[9] || 0) + 1;
     st.sh.getRange(st.n, 10).setValue(f >= PW_FAILS ? 0 : f);
-    if (f >= PW_FAILS) st.sh.getRange(st.n, 11).setValue(now + PW_LOCK_MS);
+    if (f >= PW_FAILS) { st.sh.getRange(st.n, 11).setValue(now + PW_LOCK_MS); audit_('system', 'locked (wrong password x3)', email); }
     return bad;
   }
   st.sh.getRange(st.n, 10).setValue(0);
   var token = rand_(32);
   P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: 'staff', exp: now + SESSION_TTL_MS }));
   return { ok: true, token: token, role: 'staff', email: email };
+}
+
+function audit_(actor, action, target) { sheet_('Audit').appendRow([new Date(), actor, action, target]); } // never contains codes or passwords
+
+/** Staff (or admin) asks the admin to unlock someone. Staff cannot unlock anything themselves. */
+function requestUnlock_(b, s) {
+  var target = norm_(b.email);
+  if (!staffRow_(target)) return { ok: false, error: 'No such staff account.' };
+  sheet_('Unlocks').appendRow(['U' + Date.now(), target, s.email, new Date(), 'pending']);
+  audit_(s.email, 'unlock requested', target);
+  return { ok: true, message: 'Request sent. Only the admin can unlock.' };
+}
+function listLocks_() {
+  var now = Date.now(), locked = [];
+  sheet_('Staff').getDataRange().getValues().slice(1).forEach(function (r) {
+    if (now < Number(r[10] || 0)) locked.push({ email: r[0], until: new Date(Number(r[10])).toISOString() });
+  });
+  var req = sheet_('Unlocks').getDataRange().getValues().slice(1).filter(function (r) { return r[4] === 'pending'; })
+    .map(function (r) { return { id: r[0], target: r[1], by: r[2] }; });
+  return { ok: true, locked: locked, requests: req };
+}
+function unlock_(b, s) {
+  var target = norm_(b.email), st = staffRow_(target);
+  if (!st) return { ok: false, error: 'No such staff account.' };
+  st.sh.getRange(st.n, 10).setValue(0); st.sh.getRange(st.n, 11).setValue(0);
+  var sh = sheet_('Unlocks'), rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) if (rows[i][1] === target && rows[i][4] === 'pending') sh.getRange(i + 1, 5).setValue('approved by ' + s.email);
+  audit_(s.email, 'unlocked', target);
+  return { ok: true };
+}
+/**
+ * Recovery for the ADMIN's own lock (3 wrong codes): nobody on the website can unlock the admin.
+ * The script owner (prayagideepak@gmail.com) opens this Apps Script project and runs adminUnlock() once.
+ * Otherwise the lock ends by itself 24 hours after it started.
+ */
+function adminUnlock() {
+  var raw = P.getProperty('otp:' + ADMIN);
+  if (raw) { var st = JSON.parse(raw); st.lockUntil = 0; st.fails = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st)); }
+  audit_('script owner', 'admin unlocked', ADMIN);
 }
