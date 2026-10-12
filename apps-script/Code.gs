@@ -14,6 +14,8 @@ var SEND_WINDOW_MS = 15 * 60 * 1000;
 var SEND_GLOBAL_PER_HOUR = 30;
 var SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 var BUFFER_MIN = 60;                 // 1-hour buffer between appointments
+var CUSTOMER_LOGIN_ENABLED = false;   // customer login stays OFF by owner order
+var MASTER_LEN = 12, MASTER_ROUNDS = 5000;
 var WA_ENABLED = false;              // staff WhatsApp OTP (Fast2SMS): not built, not enabled
 var LOCK_MS = 24 * 3600 * 1000;      // owner rule: 3 wrong attempts lock the account for 24 hours from the moment it locked, then it auto-releases
 var PW_MIN = 10, PW_FAILS = 3, PW_LOCK_MS = LOCK_MS, PW_ROUNDS = 3000;
@@ -30,6 +32,8 @@ function doPost(e) {
       case 'requestOtp': return out_(requestOtp_(b));
       case 'verifyOtp': return out_(verifyOtp_(b));
       case 'loginPassword': return out_(loginPassword_(b));
+      case 'loginMaster': return out_(loginMaster_(b));
+      case 'forgotPassword': return out_(forgotPassword_(b));
       case 'setPassword': return out_(setPassword_(b));
       case 'logout': P.deleteProperty('sess:' + hash_(b.token || '')); return out_({ ok: true });
     }
@@ -44,6 +48,8 @@ function doPost(e) {
       case 'addStaff': return out_(admin_(s) || addStaff_(b));
       case 'createInvite': return out_(admin_(s) || createInvite_(b));
       case 'setStaffActive': return out_(admin_(s) || setStaffActive_(b));
+      case 'setMaster': return out_(admin_(s) || setMaster_(b, s));
+      case 'createCustomer': return out_(createCustomer_(b, s));
       case 'requestUnlock': return out_(requestUnlock_(b, s));
       case 'listLocks': return out_(admin_(s) || listLocks_());
       case 'unlock': return out_(admin_(s) || unlock_(b, s));
@@ -151,7 +157,7 @@ function sheet_(name) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-    var heads = { Audit: ['time', 'actor', 'action', 'target'], Unlocks: ['id', 'target', 'requestedBy', 'time', 'status'], Staff: ['email', 'name', 'status', 'added', 'mobile', 'pwsalt', 'pwhash', 'invitehash', 'inviteexp', 'fails', 'lockuntil'], Appointments: ['id', 'name', 'mobile', 'service', 'date', 'time', 'emergency', 'status', 'note', 'by', 'created'], Closures: ['date', 'reason'] };
+    var heads = { Customers: ['mobile', 'name', 'status', 'created', 'lockuntil'], Audit: ['time', 'actor', 'action', 'target'], Unlocks: ['id', 'target', 'requestedBy', 'time', 'status'], Staff: ['email', 'name', 'status', 'added', 'mobile', 'pwsalt', 'pwhash', 'invitehash', 'inviteexp', 'fails', 'lockuntil'], Appointments: ['id', 'name', 'mobile', 'service', 'date', 'time', 'emergency', 'status', 'note', 'by', 'created'], Closures: ['date', 'reason'] };
     sh.appendRow(heads[name]);
     if (name === 'Appointments') sh.getRange('E:F').setNumberFormat('@');   // keep date and time as plain text
     if (name === 'Closures') sh.getRange('A:A').setNumberFormat('@');
@@ -306,4 +312,74 @@ function adminUnlock() {
   var raw = P.getProperty('otp:' + ADMIN);
   if (raw) { var st = JSON.parse(raw); st.lockUntil = 0; st.fails = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st)); }
   audit_('script owner', 'admin unlocked', ADMIN);
+}
+
+/** Admin master password: exactly 12 digits, accepted instead of the emailed code. Set by the admin on the site after an OTP login. Stored only as a salted, iterated hash. */
+function setMaster_(b, s) {
+  var pw = String(b.password || '');
+  if (!/^\d{12}$/.test(pw)) return { ok: false, error: 'The master password must be exactly 12 digits.' };
+  var salt = rand_(16);
+  P.setProperty('master', JSON.stringify({ salt: salt, h: masterHash_(salt, pw) }));
+  audit_(s.email, 'master password set', ADMIN);
+  return { ok: true };
+}
+function masterHash_(salt, pw) {
+  var h = salt + '|' + pw;
+  for (var i = 0; i < MASTER_ROUNDS; i++) h = b64_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h + '|' + salt + '|m'));
+  return h;
+}
+function loginMaster_(b) {
+  var bad = { ok: false, error: 'Master password is wrong.' }, now = Date.now();
+  var email = norm_(b.email || ADMIN);
+  if (email !== ADMIN) return bad;
+  var m = P.getProperty('master');
+  if (!m) return { ok: false, error: 'No master password has been set.' };
+  var st = JSON.parse(P.getProperty('otp:' + ADMIN) || '{}');        // same lock as the emailed code: one shared 3-attempt counter
+  if (now < (st.lockUntil || 0)) return { ok: false, error: 'Too many wrong attempts. This login is locked for 24 hours from the time it locked.' };
+  var mm = JSON.parse(m);
+  if (!/^\d{12}$/.test(String(b.password || '')) || !same_(mm.h, masterHash_(mm.salt, String(b.password)))) {
+    st.fails = (st.fails || 0) + 1;
+    if (st.fails >= OTP_MAX_TRIES) { st.lockUntil = now + LOCK_MS; st.fails = 0; st.h = ''; st.exp = 0; audit_('system', 'locked (wrong master password x3)', ADMIN); }
+    P.setProperty('otp:' + ADMIN, JSON.stringify(st));
+    return bad;
+  }
+  st.fails = 0; P.setProperty('otp:' + ADMIN, JSON.stringify(st));
+  var token = rand_(32);
+  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: ADMIN, role: 'admin', exp: now + SESSION_TTL_MS }));
+  audit_(ADMIN, 'admin login with master password', ADMIN);
+  MailApp.sendEmail(ADMIN, 'Prayagi admin login with the master password',
+    'The admin master password was just used to log in at ' + new Date().toString() + '. If this was not you, change the master password and run adminUnlock review in Apps Script.');
+  return { ok: true, token: token, role: 'admin', email: ADMIN };
+}
+
+/** Staff create a customer record (customer login itself is OFF). Mobile is the key; no password is set here. */
+function createCustomer_(b, s) {
+  var mobile = String(b.mobile || '').replace(/\D/g, '');
+  if (!/^[6-9]\d{9}$/.test(mobile)) return { ok: false, error: 'Enter a 10-digit mobile number.' };
+  var sh = sheet_('Customers'), rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) if (String(rows[i][0]) === mobile) return { ok: false, error: 'This customer already exists.' };
+  sh.appendRow([mobile, clean_(b.name, 60), 'created', new Date(), 0]);
+  audit_(s.email, 'customer created', mobile);
+  return { ok: true };
+}
+/**
+ * Forgot password. WhatsApp OTP is OFF, so this only answers truthfully.
+ * Rule (owner): a locked CUSTOMER cannot reset during the lock. A locked STAFF member can reset, but still cannot log in until the lock ends or the admin unlocks.
+ */
+function forgotPassword_(b) {
+  var now = Date.now();
+  var mobile = String(b.mobile || '').replace(/\D/g, ''), email = norm_(b.email);
+  if (b.kind === 'customer') {
+    if (!CUSTOMER_LOGIN_ENABLED) return { ok: false, error: 'Unavailable: customer login is not open yet.' };
+    var rows = sheet_('Customers').getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) if (String(rows[i][0]) === mobile && now < Number(rows[i][4] || 0))
+      return { ok: false, error: 'This account is locked. Forgot password does not work while it is locked. It unlocks by itself 24 hours after it locked, or the shop can ask the admin to unlock it.' };
+  } else {
+    var st = staffRow_(email);
+    if (st && now < Number(st.r[10] || 0)) {
+      if (!WA_ENABLED) return { ok: false, error: 'Unavailable: WhatsApp code is not connected yet. You can reset after it is, but you can log in only after the lock ends or the admin unlocks you.' };
+    }
+  }
+  if (!WA_ENABLED) return { ok: false, error: 'Unavailable: WhatsApp code is not connected yet.' };
+  return { ok: false, error: 'Unavailable.' };
 }
