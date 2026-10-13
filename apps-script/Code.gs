@@ -277,8 +277,8 @@ function addAppointment_(b, s) {
   });
   if (clash) return { ok: false, error: 'Another appointment is already at that time.' };
   var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
-  sheet_('Appointments').appendRow([id, name, mobile, service, date, time, emergency, emergency ? 'Requested' : 'Confirmed', clean_(b.note, 200), s.email, new Date()]);
-  return { ok: true, id: id, fee: emergency ? 50 : 0, status: emergency ? 'Requested' : 'Confirmed' };   // emergency stays Requested until the owner checks the 50 payment
+  sheet_('Appointments').appendRow([id, name, mobile, service, date, time, emergency, (emergency || durationOf_(service) === 30) ? 'Requested' : 'Confirmed', clean_(b.note, 200), s.email, new Date()]);
+  return { ok: true, id: id, fee: emergency ? 50 : 0, status: (emergency || durationOf_(service) === 30) ? 'Requested' : 'Confirmed' };   // consulting (advance 50) and emergency (fee 50) stay manual until the owner checks the payment (owner 2026-10-06 13:01 and 14:45)   // emergency stays Requested until the owner checks the 50 payment
 }
 function setStatus_(b, s) {
   if (['Confirmed', 'Cancelled', 'Requested'].indexOf(b.status) < 0) return { ok: false, error: 'Bad status.' };
