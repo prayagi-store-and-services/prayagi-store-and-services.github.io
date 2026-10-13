@@ -29,7 +29,9 @@
       if (!d || !d.ok || !Array.isArray(d.closedDays) || !Array.isArray(d.blocks)) throw new Error('bad');
       render(d); document.getElementById('availability').hidden = false;
     }).catch(function () {
-      document.getElementById('availability').hidden = true;   // no data: the whole block stays hidden (owner rule)
+      box.textContent = '';   // never show an empty grid that could look like "all free"
+      note.textContent = 'Availability अभी उपलब्ध नहीं है (Unavailable)। कृपया थोड़ी देर बाद देखें या WhatsApp पर पूछें।';
+      document.getElementById('availability').hidden = false;
     });
   }
   load(); setInterval(load, 5 * 60 * 1000);
