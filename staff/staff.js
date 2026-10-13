@@ -30,7 +30,7 @@
 
   function masterStatus() {
     if ($('admin').hidden) return;
-    call({ action: 'masterStatus' }).then(function (r) { $('m_status').textContent = r.ok ? (r.set ? 'Master password is set and saved. Use the box below only to change it.' : 'Master password is not set yet.') : 'Unavailable'; $('m_set').textContent = r.ok && r.set ? 'Change master password' : 'Save master password'; });
+    call({ action: 'masterStatus' }).then(function (r) { $('m_status').textContent = r.ok ? (r.set ? 'Master password is set and saved. Use the field and button above only to change it.' : 'Master password is not set yet.') : 'Unavailable'; $('m_set').textContent = r.ok && r.set ? 'Change master password' : 'Save master password'; });
   }
   function refresh() {
     masterStatus();
@@ -103,7 +103,7 @@
   $('pwlogin').onclick = function () {
     call({ action: 'loginPassword', email: $('p_email').value, password: $('p_pw').value }).then(function (r) {
       if (!r.ok) { $('pwmsg').textContent = r.error; return; }
-      if (r.verify) { fl_email = $('p_email').value; $('p_pw').value = ''; $('fl_verify').hidden = false; $('pwmsg').textContent = r.message; return; }
+      if (r.verify) { fl_email = $('p_email').value; $('p_pw').value = ''; $('fl_verify').hidden = false; $('pwmsg').textContent = ''; return; }
       token = r.token; sessionStorage.setItem('pt', token); $('p_pw').value = '';
       if (!goBack()) showApp(r.role, r.email);
     });
