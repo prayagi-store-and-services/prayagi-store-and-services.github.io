@@ -36,9 +36,19 @@
   <details id="firsttime"><summary>First time? Set your password with the invite from the admin</summary>
     <label>Email <input id="i_email" type="email"></label>
     <label>Invite code (8 digits) <input id="i_code" inputmode="numeric" maxlength="8"></label>
-    <label>New password (10+ characters) <input id="i_pw" type="password" autocomplete="new-password"></label>
+    <label>New password (8 to 30 characters) <input id="i_pw" type="password" autocomplete="new-password"></label>
     <button id="setpw">Set password</button>
   </details>
+  <div id="fl_verify" hidden>
+    <p>We emailed a 6-digit code to your email. Enter it to continue. / आपके ईमेल पर 6 अंकों का कोड भेजा गया है।</p>
+    <label>Code <input id="fl_code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+    <button id="fl_go">Verify / सत्यापित करें</button>
+  </div>
+  <div id="fl_change" hidden>
+    <p>Set your own password (8 to 30 characters). You cannot use the temporary password or your mobile number. / अपना नया पासवर्ड बनाएं (8 से 30 अक्षर)।</p>
+    <label>New password <input id="fl_pw" type="password" maxlength="30" autocomplete="new-password"></label>
+    <button id="fl_save">Save password / पासवर्ड सहेजें</button>
+  </div>
   <p id="pwmsg" role="status"></p>
   <p class="hint">Admin: use the email box above (code is emailed). Staff WhatsApp code login is not available yet.</p>
 </section>
@@ -82,7 +92,9 @@
     <form id="staffform">
       <label>Staff email <input id="s_email" type="email" required></label>
       <label>Name <input id="s_name" maxlength="60"></label>
-      <label>Mobile (for later WhatsApp login) <input id="s_mobile" inputmode="numeric" maxlength="10"></label>
+      <label>Mobile (required, 10 digits) <input id="s_mobile" inputmode="numeric" maxlength="10" required></label>
+      <label>Temporary password (optional, 8 to 30 characters) <input id="s_temp" type="password" maxlength="30" autocomplete="new-password"></label>
+      <p class="hint">Leave the temporary password blank and the staff member's mobile number is the temporary password. At the first login the staff member must verify the email code and set a new password.</p>
       <button type="submit">Add staff</button>
     </form>
     <p class="hint">After adding, press Invite on the staff row and hand the 8-digit code to them in person.</p>
@@ -91,6 +103,7 @@
     <h2>Master password (admin only)</h2>
     <label>New 12-digit master password <input id="m_new" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password"></label>
     <button id="m_set">Save master password</button>
+    <p id="m_status" role="status"></p>
     <p id="m_msg" role="status"></p>
     <p class="hint">Digits only. It is stored as a salted hash and cannot be read back. Use a number that is not a phone number, date or pattern.</p>
     <h2>Locked accounts and unlock requests</h2>
