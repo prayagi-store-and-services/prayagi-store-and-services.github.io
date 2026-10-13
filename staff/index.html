@@ -33,7 +33,7 @@
   <label>Staff email <input id="p_email" type="email" autocomplete="username"></label>
   <label>Password <input id="p_pw" type="password" autocomplete="current-password"></label>
   <button id="pwlogin">Log in</button>
-  <details id="firsttime"><summary>First time? Set your password with the invite from the admin</summary>
+  <details id="firsttime"><summary>First time? Log in above with the temporary password the shop gave you (if none, your mobile number). An emailed code follows. Have an invite code instead? Open this.</summary>
     <label>Email <input id="i_email" type="email"></label>
     <label>Invite code (8 digits) <input id="i_code" inputmode="numeric" maxlength="8"></label>
     <label>New password (8 to 30 characters) <input id="i_pw" type="password" autocomplete="new-password"></label>
@@ -97,7 +97,7 @@
       <p class="hint">Leave the temporary password blank and the staff member's mobile number is the temporary password. At the first login the staff member must verify the email code and set a new password.</p>
       <button type="submit">Add staff</button>
     </form>
-    <p class="hint">After adding, press Invite on the staff row and hand the 8-digit code to them in person.</p>
+    <p class="hint">After adding, tell the staff member to log in with their email and the temporary password (or their mobile number if you left it blank). They get an emailed code, then choose a new password. The Invite button is the older route (8-digit code handed over in person) and still works.</p>
     <p id="invmsg" role="status"></p>
     <div id="stafflist"></div>
     <h2>Master password (admin only)</h2>
