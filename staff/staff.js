@@ -3,6 +3,11 @@
   // Set to the deployed Apps Script web app URL (ends with /exec) after the owner deploys it. Empty = Unavailable.
   var BACKEND = 'https://script.google.com/macros/s/AKfycbyAJG3ci-kniagsih7BXHpAPTk5h0-zKujN3Bu2VDyz5yh5fYNRor8GuVGedH1HdPmw/exec';
   var $ = function (id) { return document.getElementById(id); };
+  var origin = location.origin;
+  var qs = new URLSearchParams(location.search).get('next');
+  var next = safeNext(qs, origin) || (document.referrer ? safeNext(document.referrer, origin) : '');
+  if (next) sessionStorage.setItem('pnext', next);
+  function goBack() { var n = sessionStorage.getItem('pnext'); sessionStorage.removeItem('pnext'); if (n) { location.assign(n); return true; } return false; }
   var token = sessionStorage.getItem('pt') || '';   // session only: closing the tab logs out
 
   function el(tag, text, cls) { var e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
@@ -92,7 +97,7 @@
     call({ action: 'verifyOtp', email: $('email').value, code: $('code').value }).then(function (r) {
       if (!r.ok) { $('loginmsg').textContent = r.error; if (r.masterAvailable) $('masterbox').hidden = false; return; }
       token = r.token; sessionStorage.setItem('pt', token); $('code').value = '';
-      showApp(r.role, r.email);
+      if (!goBack()) showApp(r.role, r.email);
     });
   };
   $('pwlogin').onclick = function () {
@@ -100,7 +105,7 @@
       if (!r.ok) { $('pwmsg').textContent = r.error; return; }
       if (r.verify) { fl_email = $('p_email').value; $('p_pw').value = ''; $('fl_verify').hidden = false; $('pwmsg').textContent = r.message; return; }
       token = r.token; sessionStorage.setItem('pt', token); $('p_pw').value = '';
-      showApp(r.role, r.email);
+      if (!goBack()) showApp(r.role, r.email);
     });
   };
   var fl_email = '';
@@ -129,7 +134,7 @@
     call({ action: 'loginMaster', password: $('m_pw').value }).then(function (r) {
       $('m_pw').value = '';
       if (!r.ok) { $('loginmsg').textContent = r.error; return; }
-      token = r.token; sessionStorage.setItem('pt', token); showApp(r.role, r.email);
+      token = r.token; sessionStorage.setItem('pt', token); if (!goBack()) showApp(r.role, r.email);
     });
   };
   $('m_set').onclick = function () {
