@@ -249,6 +249,7 @@ function listAppointments_() {
   rows.sort(function (a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; });
   return { ok: true, appointments: rows };
 }
+function durationOf_(service) { return /consult/i.test(String(service || '')) ? 30 : 15; }   // consulting = 30 min, other services = one 15-min slot (owner decision 2026-10-06)
 function toMin_(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
 function addAppointment_(b, s) {
   var name = clean_(b.name, 60), mobile = String(b.mobile || '').replace(/\D/g, ''), service = clean_(b.service, 80);
@@ -268,10 +269,11 @@ function addAppointment_(b, s) {
   var av;
   try { av = availability_(); } catch (x) { return { ok: false, error: 'Calendar check is unavailable, nothing was saved.' }; }   // fail closed
   if (av.closedDays.indexOf(date) >= 0) return { ok: false, error: 'The shop is closed on that date.' };
-  var busy = av.blocks.some(function (k) { return k.date === date && toMin_(k.start) < mins + 15 && toMin_(k.end) > mins; });
+  var dur = durationOf_(service), endMin = mins + dur;   // full interval [start, start+duration) must not touch a booked or closed block
+  var busy = av.blocks.some(function (k) { return k.date === date && toMin_(k.start) < endMin && toMin_(k.end) > mins; });
   if (busy) return { ok: false, error: 'That time is already booked or closed in the calendar.' };
   var clash = listAppointments_().appointments.some(function (a) {
-    return a.date === date && a.status !== 'Cancelled' && Math.abs(toMin_(a.time) - mins) < 15;
+    return a.date === date && a.status !== 'Cancelled' && toMin_(a.time) < endMin && toMin_(a.time) + durationOf_(a.service) > mins;
   });
   if (clash) return { ok: false, error: 'Another appointment is already at that time.' };
   var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
