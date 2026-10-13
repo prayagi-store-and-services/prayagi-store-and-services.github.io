@@ -311,6 +311,7 @@ function pw_(salt, pw) {
 function createInvite_(b) {
   var st = staffRow_(norm_(b.email));
   if (!st) return { ok: false, error: 'Add the staff member first.' };
+  if (String(st.r[11]) === '1') return { ok: false, error: 'This account is waiting for its first login with the temporary password. No invite is needed.' };   // the invite route must not skip the emailed verification
   var code = code6_() + code6_().slice(0, 2);                 // 8 digits, shown once to the admin, hand it over in person
   st.sh.getRange(st.n, 8).setValue(hash_('inv|' + code));
   st.sh.getRange(st.n, 9).setValue(Date.now() + 24 * 3600000);
@@ -321,6 +322,7 @@ function setPassword_(b) {
   var st = staffRow_(norm_(b.email));
   var pw = String(b.password || '');
   if (!st || String(st.r[2]) !== 'active' || !st.r[7]) return bad;
+  if (String(st.r[11]) === '1') return bad;                      // first-login accounts must go through the emailed verification, never the invite
   if (Date.now() > Number(st.r[8]) || !same_(String(st.r[7]), hash_('inv|' + String(b.invite || '').replace(/\D/g, '')))) return bad;
   if (!pwOk_(pw)) return { ok: false, error: 'Password must be ' + PW_MIN + ' to ' + PW_MAX + ' characters.' };
   var salt = rand_(16);
