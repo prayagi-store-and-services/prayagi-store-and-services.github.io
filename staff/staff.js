@@ -23,7 +23,12 @@
   }
   function showLogin() { token = ''; sessionStorage.removeItem('pt'); $('app').hidden = true; $('login').hidden = false; }
 
+  function masterStatus() {
+    if ($('admin').hidden) return;
+    call({ action: 'masterStatus' }).then(function (r) { $('m_status').textContent = r.ok ? (r.set ? 'Master password is set.' : 'Master password is not set yet.') : 'Unavailable'; });
+  }
   function refresh() {
+    masterStatus();
     call({ action: 'listAppointments' }).then(function (r) {
       if (r.relogin) return showLogin();
       var box = $('list'); box.textContent = '';
@@ -93,8 +98,24 @@
   $('pwlogin').onclick = function () {
     call({ action: 'loginPassword', email: $('p_email').value, password: $('p_pw').value }).then(function (r) {
       if (!r.ok) { $('pwmsg').textContent = r.error; return; }
+      if (r.verify) { fl_email = $('p_email').value; $('p_pw').value = ''; $('fl_verify').hidden = false; $('pwmsg').textContent = r.message; return; }
       token = r.token; sessionStorage.setItem('pt', token); $('p_pw').value = '';
       showApp(r.role, r.email);
+    });
+  };
+  var fl_email = '';
+  $('fl_go').onclick = function () {
+    call({ action: 'verifyFirstLogin', email: fl_email, code: $('fl_code').value }).then(function (r) {
+      if (!r.ok) { $('pwmsg').textContent = r.error; return; }
+      token = r.token; sessionStorage.setItem('pt', token); $('fl_code').value = '';
+      $('fl_verify').hidden = true; $('fl_change').hidden = false; $('pwmsg').textContent = 'Email verified. Set your new password.';
+    });
+  };
+  $('fl_save').onclick = function () {
+    call({ action: 'changePassword', password: $('fl_pw').value }).then(function (r) {
+      if (!r.ok) { $('pwmsg').textContent = r.error; return; }
+      $('fl_pw').value = ''; $('fl_change').hidden = true; token = ''; sessionStorage.removeItem('pt');
+      $('pwmsg').textContent = 'Password saved. Log in with your email and the new password.';
     });
   };
   $('setpw').onclick = function () {
@@ -112,7 +133,7 @@
     });
   };
   $('m_set').onclick = function () {
-    call({ action: 'setMaster', password: $('m_new').value }).then(function (r) { $('m_new').value = ''; $('m_msg').textContent = r.ok ? 'Master password saved.' : r.error; });
+    call({ action: 'setMaster', password: $('m_new').value }).then(function (r) { $('m_new').value = ''; $('m_msg').textContent = r.ok ? 'Master password has been saved. / मास्टर पासवर्ड सहेज लिया गया है।' : r.error; masterStatus(); });
   };
   $('custform').onsubmit = function (e) {
     e.preventDefault();
@@ -126,10 +147,10 @@
       if (r.ok) { $('bookform').reset(); refresh(); }
     });
   };
-  $('staffform').onsubmit = function (e) { e.preventDefault(); call({ action: 'addStaff', email: $('s_email').value, name: $('s_name').value, mobile: $('s_mobile').value }).then(function (r) { if (r.ok) { $('staffform').reset(); refresh(); } else alert(r.error); }); };
+  $('staffform').onsubmit = function (e) { e.preventDefault(); call({ action: 'addStaff', email: $('s_email').value, name: $('s_name').value, mobile: $('s_mobile').value, tempPassword: $('s_temp').value }).then(function (r) { if (r.ok) { $('staffform').reset(); $('invmsg').textContent = r.note || 'Staff already exists and is active.'; refresh(); } else alert(r.error); }); };
   $('closeform').onsubmit = function (e) { e.preventDefault(); call({ action: 'addClosure', date: $('c_date').value, reason: $('c_reason').value }).then(function (r) { if (r.ok) { $('closeform').reset(); refresh(); } else alert(r.error); }); };
 
-  if (token) call({ action: 'me' }).then(function (r) { if (r.ok) showApp(r.role, r.email); else showLogin(); });
+  if (token) call({ action: 'me' }).then(function (r) { if (r.ok && !r.mustChange) showApp(r.role, r.email); else showLogin(); });
 })();
 
 ;(function () { function o() { var d = document.getElementById('firsttime'); if (d && location.hash === '#first-time') { d.open = true; d.scrollIntoView(); } } o(); window.addEventListener('hashchange', o); })();
