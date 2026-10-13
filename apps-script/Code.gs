@@ -26,7 +26,30 @@ var LOCK_MS = 24 * 3600 * 1000;      // owner rule: 3 wrong attempts lock the ac
 var PW_MIN = 10, PW_FAILS = 3, PW_LOCK_MS = LOCK_MS, PW_ROUNDS = 3000;
 var P = PropertiesService.getScriptProperties();
 
-function doGet() { return out_({ ok: true, service: 'prayagi-staff' }); }
+function doGet(e) {
+  var a = e && e.parameter && e.parameter.action;
+  if (a === 'availability') { try { return out_(availability_()); } catch (x) { return out_({ ok: false, error: 'Unavailable' }); } }
+  return out_({ ok: true, service: 'prayagi-staff' });
+}
+
+// Public availability: dates and times only (see Availability.gs). Cached 5 minutes so the public page is at most about 5-10 minutes behind the calendar.
+var BOOKING_CAL_ID = '801ceaf817c96d3c6a2c04f9bbc6f9951e926cb1838f7f703a0c964316d50dfa@group.calendar.google.com';
+var AVAIL_DAYS = 60, AVAIL_CACHE_S = 300;
+function availability_() {
+  var cache = CacheService.getScriptCache(), hit = cache.get('avail');
+  if (hit) return JSON.parse(hit);
+  var now = Date.now(), cal = CalendarApp.getCalendarById(BOOKING_CAL_ID);
+  if (!cal) throw new Error('calendar');
+  var from = new Date(now - 86400000), to = new Date(now + AVAIL_DAYS * 86400000);
+  var raw = cal.getEvents(from, to).map(function (ev) {
+    var all = ev.isAllDayEvent();
+    return { title: ev.getTitle() === 'Unavailable' ? 'Unavailable' : 'x', allDay: all, startDate: all ? Utilities.formatDate(ev.getAllDayStartDate(), 'Asia/Kolkata', 'yyyy-MM-dd') : '', start: ev.getStartTime().getTime(), end: ev.getEndTime().getTime() };
+  });
+  var dates = sheet_('Closures').getDataRange().getValues().slice(1).map(function (x) { return fmtDate_(x[0]); });   // dates only; reasons are never read
+  var res = sanitizeAvailability_(raw, dates, now);
+  cache.put('avail', JSON.stringify(res), AVAIL_CACHE_S);
+  return res;
+}
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -235,13 +258,25 @@ function addAppointment_(b, s) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return { ok: false, error: 'Check the date and time.' };
   var closed = listClosures_().closures.some(function (c) { return c.date === date; });
   if (closed) return { ok: false, error: 'The shop is closed on that date.' };
+  var mins = toMin_(time);
+  if (new Date(date + 'T00:00:00Z').getUTCDay() === 0) return { ok: false, error: 'The shop is closed on Sundays.' };
+  if (!((mins >= 570 && mins < 840) || (mins >= 990 && mins < 1200))) return { ok: false, error: 'Outside shop hours (9:30-14:00, 16:30-20:00).' };
+  var emergency = b.emergency === true;
+  var startMs = Date.parse(date + 'T' + time + ':00+05:30');
+  var insideBuffer = startMs < Date.now() + BUFFER_MIN * 60000;
+  if (insideBuffer && !emergency && s.role !== 'admin') return { ok: false, error: 'Less than 1 hour ahead: only an emergency booking (fee 50) or the owner can book this.' };
+  var av;
+  try { av = availability_(); } catch (x) { return { ok: false, error: 'Calendar check is unavailable, nothing was saved.' }; }   // fail closed
+  if (av.closedDays.indexOf(date) >= 0) return { ok: false, error: 'The shop is closed on that date.' };
+  var busy = av.blocks.some(function (k) { return k.date === date && toMin_(k.start) < mins + 15 && toMin_(k.end) > mins; });
+  if (busy) return { ok: false, error: 'That time is already booked or closed in the calendar.' };
   var clash = listAppointments_().appointments.some(function (a) {
-    return a.date === date && a.status !== 'Cancelled' && Math.abs(toMin_(a.time) - toMin_(time)) < BUFFER_MIN;
+    return a.date === date && a.status !== 'Cancelled' && Math.abs(toMin_(a.time) - mins) < 15;
   });
-  if (clash) return { ok: false, error: 'Another appointment is within 1 hour of that time.' };
+  if (clash) return { ok: false, error: 'Another appointment is already at that time.' };
   var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
-  sheet_('Appointments').appendRow([id, name, mobile, service, date, time, b.emergency === true, 'Confirmed', clean_(b.note, 200), s.email, new Date()]);
-  return { ok: true, id: id, fee: b.emergency === true ? 50 : 0 };
+  sheet_('Appointments').appendRow([id, name, mobile, service, date, time, emergency, emergency ? 'Requested' : 'Confirmed', clean_(b.note, 200), s.email, new Date()]);
+  return { ok: true, id: id, fee: emergency ? 50 : 0, status: emergency ? 'Requested' : 'Confirmed' };   // emergency stays Requested until the owner checks the 50 payment
 }
 function setStatus_(b, s) {
   if (['Confirmed', 'Cancelled', 'Requested'].indexOf(b.status) < 0) return { ok: false, error: 'Bad status.' };
