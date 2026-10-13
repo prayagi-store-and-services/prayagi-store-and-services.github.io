@@ -23,7 +23,7 @@ var MASTER_LEN = 12, MASTER_ROUNDS = 5000, MASTER_WINDOW_MS = 30 * 60 * 1000;
 var MASTER_DELAYS_S = [30, 60, 300, 900, 3600];   // escalating wait between master-password attempts; the admin is never locked out
 var WA_ENABLED = false;              // staff WhatsApp OTP (Fast2SMS): not built, not enabled
 var LOCK_MS = 24 * 3600 * 1000;      // owner rule: 3 wrong attempts lock the account for 24 hours from the moment it locked, then it auto-releases
-var PW_MIN = 10, PW_FAILS = 3, PW_LOCK_MS = LOCK_MS, PW_ROUNDS = 3000;
+var PW_MIN = 8, PW_MAX = 30, PW_FAILS = 3, PW_LOCK_MS = LOCK_MS, PW_ROUNDS = 3000;
 var P = PropertiesService.getScriptProperties();
 
 function doGet(e) {
@@ -64,14 +64,18 @@ function doPost(e) {
       case 'loginMaster': return out_(loginMaster_(b));
       case 'forgotPassword': return out_(forgotPassword_(b));
       case 'setPassword': return out_(setPassword_(b));
+      case 'verifyFirstLogin': return out_(verifyFirstLogin_(b));
       case 'logoutAll': { var ss = session_(b.token); if (ss && !ss.rateLimited) revokeAll_(ss.email); return out_({ ok: true }); }
       case 'logout': P.deleteProperty('sess:' + hash_(b.token || '')); return out_({ ok: true });
     }
     var s = session_(b.token);
     if (!s) return out_({ ok: false, error: 'Please log in again.', relogin: true });
     if (s.rateLimited) return out_({ ok: false, error: 'Too many actions. Wait a minute.' });
+    if (s.mustChange && b.action !== 'changePassword' && b.action !== 'me') return out_({ ok: false, error: 'Change your password first.', mustChange: true });   // restricted session after first login
     switch (b.action) {
-      case 'me': return out_({ ok: true, email: s.email, role: s.role });
+      case 'me': return out_({ ok: true, email: s.email, role: s.role, mustChange: !!s.mustChange });
+      case 'changePassword': return out_(changePassword_(b, s));
+      case 'masterStatus': return out_(admin_(s) || { ok: true, set: !!(P.getProperty('master') && JSON.parse(P.getProperty('master')).h) });
       case 'listAppointments': return out_(listAppointments_());
       case 'addAppointment': return out_(addAppointment_(b, s));
       case 'setStatus': return out_(setStatus_(b, s));
@@ -206,7 +210,7 @@ function sheet_(name) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-    var heads = { Customers: ['mobile', 'name', 'status', 'created', 'lockuntil'], Audit: ['time', 'actor', 'action', 'target'], Unlocks: ['id', 'target', 'requestedBy', 'time', 'status'], Staff: ['email', 'name', 'status', 'added', 'mobile', 'pwsalt', 'pwhash', 'invitehash', 'inviteexp', 'fails', 'lockuntil'], Appointments: ['id', 'name', 'mobile', 'service', 'date', 'time', 'emergency', 'status', 'note', 'by', 'created'], Closures: ['date', 'reason'] };
+    var heads = { Customers: ['mobile', 'name', 'status', 'created', 'lockuntil'], Audit: ['time', 'actor', 'action', 'target'], Unlocks: ['id', 'target', 'requestedBy', 'time', 'status'], Staff: ['email', 'name', 'status', 'added', 'mobile', 'pwsalt', 'pwhash', 'invitehash', 'inviteexp', 'fails', 'lockuntil', 'mustchange'], Appointments: ['id', 'name', 'mobile', 'service', 'date', 'time', 'emergency', 'status', 'note', 'by', 'created'], Closures: ['date', 'reason'] };
     sh.appendRow(heads[name]);
     if (name === 'Appointments') sh.getRange('E:F').setNumberFormat('@');   // keep date and time as plain text
     if (name === 'Closures') sh.getRange('A:A').setNumberFormat('@');
@@ -219,14 +223,21 @@ function listStaff_() {
   var r = sheet_('Staff').getDataRange().getValues().slice(1).map(function (x) { return { email: x[0], name: x[1], status: x[2] }; });
   return { ok: true, staff: r };
 }
+function mobile10_(v) { var d = String(v || '').replace(/\D/g, ''); if (d.length === 12 && d.slice(0, 2) === '91') d = d.slice(2); return /^[6-9]\d{9}$/.test(d) ? d : ''; }
+function pwOk_(pw) { return pw.length >= PW_MIN && pw.length <= PW_MAX; }
+/** Owner rule 2026-10-13: the staff email is the login name, mobile is mandatory. The admin may type a temporary password; if left blank the temporary password is the 10-digit mobile number.
+ *  Either way it is stored only as a salted hash and the account must change it at first login, after an emailed verification code (see loginPassword_). */
 function addStaff_(b) {
-  var email = norm_(b.email);
+  var email = norm_(b.email), mobile = mobile10_(b.mobile), temp = String(b.tempPassword || '');
   if (!validEmail_(email) || email === ADMIN) return { ok: false, error: 'Enter a valid staff email.' };
+  if (!mobile) return { ok: false, error: 'Enter the staff mobile number (10 digits).' };
+  if (temp && !pwOk_(temp)) return { ok: false, error: 'Temporary password must be ' + PW_MIN + ' to ' + PW_MAX + ' characters, or leave it blank to use the mobile number.' };
   var sh = sheet_('Staff'), rows = sh.getDataRange().getValues();
-  for (var i = 1; i < rows.length; i++) if (norm_(rows[i][0]) === email) { sh.getRange(i + 1, 3).setValue('active'); return { ok: true }; }
-  sh.appendRow([email, clean_(b.name, 60), 'active', new Date(), clean_(b.mobile, 15)]);
-  audit_('admin', 'staff added', email);
-  return { ok: true };
+  for (var i = 1; i < rows.length; i++) if (norm_(rows[i][0]) === email) { sh.getRange(i + 1, 3).setValue('active'); return { ok: true, existing: true }; }
+  var salt = rand_(16), usedDefault = !temp;
+  sh.appendRow([email, clean_(b.name, 60), 'active', new Date(), mobile, salt, pw_(salt, temp || mobile), '', 0, 0, 0, 1]);   // col 12 = must change password
+  audit_('admin', 'staff added (temporary password ' + (usedDefault ? 'default' : 'admin-set') + ')', email);
+  return { ok: true, defaultUsed: usedDefault, note: usedDefault ? 'The temporary password is the staff mobile number. The staff member must verify the email and set a new password at first login.' : 'The temporary password you typed is set. The staff member must verify the email and set a new password at first login.' };
 }
 function setStaffActive_(b) {
   var email = norm_(b.email), sh = sheet_('Staff'), rows = sh.getDataRange().getValues();
@@ -249,6 +260,7 @@ function listAppointments_() {
   rows.sort(function (a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; });
   return { ok: true, appointments: rows };
 }
+function durationOf_(service) { return /consult/i.test(String(service || '')) ? 30 : 15; }   // consulting = 30 min, other services = one 15-min slot (owner decision 2026-10-06)
 function toMin_(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
 function addAppointment_(b, s) {
   var name = clean_(b.name, 60), mobile = String(b.mobile || '').replace(/\D/g, ''), service = clean_(b.service, 80);
@@ -268,15 +280,16 @@ function addAppointment_(b, s) {
   var av;
   try { av = availability_(); } catch (x) { return { ok: false, error: 'Calendar check is unavailable, nothing was saved.' }; }   // fail closed
   if (av.closedDays.indexOf(date) >= 0) return { ok: false, error: 'The shop is closed on that date.' };
-  var busy = av.blocks.some(function (k) { return k.date === date && toMin_(k.start) < mins + 15 && toMin_(k.end) > mins; });
+  var dur = durationOf_(service), endMin = mins + dur;   // full interval [start, start+duration) must not touch a booked or closed block
+  var busy = av.blocks.some(function (k) { return k.date === date && toMin_(k.start) < endMin && toMin_(k.end) > mins; });
   if (busy) return { ok: false, error: 'That time is already booked or closed in the calendar.' };
   var clash = listAppointments_().appointments.some(function (a) {
-    return a.date === date && a.status !== 'Cancelled' && Math.abs(toMin_(a.time) - mins) < 15;
+    return a.date === date && a.status !== 'Cancelled' && toMin_(a.time) < endMin && toMin_(a.time) + durationOf_(a.service) > mins;
   });
   if (clash) return { ok: false, error: 'Another appointment is already at that time.' };
   var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
-  sheet_('Appointments').appendRow([id, name, mobile, service, date, time, emergency, emergency ? 'Requested' : 'Confirmed', clean_(b.note, 200), s.email, new Date()]);
-  return { ok: true, id: id, fee: emergency ? 50 : 0, status: emergency ? 'Requested' : 'Confirmed' };   // emergency stays Requested until the owner checks the 50 payment
+  sheet_('Appointments').appendRow([id, name, mobile, service, date, time, emergency, (emergency || durationOf_(service) === 30) ? 'Requested' : 'Confirmed', clean_(b.note, 200), s.email, new Date()]);
+  return { ok: true, id: id, fee: emergency ? 50 : 0, status: (emergency || durationOf_(service) === 30) ? 'Requested' : 'Confirmed' };   // consulting (advance 50) and emergency (fee 50) stay manual until the owner checks the payment (owner 2026-10-06 13:01 and 14:45)   // emergency stays Requested until the owner checks the 50 payment
 }
 function setStatus_(b, s) {
   if (['Confirmed', 'Cancelled', 'Requested'].indexOf(b.status) < 0) return { ok: false, error: 'Bad status.' };
@@ -298,6 +311,7 @@ function pw_(salt, pw) {
 function createInvite_(b) {
   var st = staffRow_(norm_(b.email));
   if (!st) return { ok: false, error: 'Add the staff member first.' };
+  if (String(st.r[11]) === '1') return { ok: false, error: 'This account is waiting for its first login with the temporary password. No invite is needed.' };   // the invite route must not skip the emailed verification
   var code = code6_() + code6_().slice(0, 2);                 // 8 digits, shown once to the admin, hand it over in person
   st.sh.getRange(st.n, 8).setValue(hash_('inv|' + code));
   st.sh.getRange(st.n, 9).setValue(Date.now() + 24 * 3600000);
@@ -308,14 +322,16 @@ function setPassword_(b) {
   var st = staffRow_(norm_(b.email));
   var pw = String(b.password || '');
   if (!st || String(st.r[2]) !== 'active' || !st.r[7]) return bad;
+  if (String(st.r[11]) === '1') return bad;                      // first-login accounts must go through the emailed verification, never the invite
   if (Date.now() > Number(st.r[8]) || !same_(String(st.r[7]), hash_('inv|' + String(b.invite || '').replace(/\D/g, '')))) return bad;
-  if (pw.length < PW_MIN) return { ok: false, error: 'Password needs at least ' + PW_MIN + ' characters.' };
+  if (!pwOk_(pw)) return { ok: false, error: 'Password must be ' + PW_MIN + ' to ' + PW_MAX + ' characters.' };
   var salt = rand_(16);
   st.sh.getRange(st.n, 6).setValue(salt);
   st.sh.getRange(st.n, 7).setValue(pw_(salt, pw));
   st.sh.getRange(st.n, 8).setValue('');                        // invite is single use
   st.sh.getRange(st.n, 9).setValue(0);
   st.sh.getRange(st.n, 10).setValue(0);
+  st.sh.getRange(st.n, 12).setValue('');
   revokeAll_(norm_(b.email));                                  // password change ends old sessions
   audit_(norm_(b.email), 'password set', norm_(b.email));
   return { ok: true };
@@ -333,9 +349,55 @@ function loginPassword_(b) {
     return bad;
   }
   st.sh.getRange(st.n, 10).setValue(0);
+  if (String(st.r[11]) === '1') return startFirstLogin_(st, email, now);   // temporary password is not enough: email verification first, no session yet
   var token = rand_(32);
   P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: 'staff', exp: now + SESSION_TTL_MS, seen: now }));
   return { ok: true, token: token, role: 'staff', email: email };
+}
+/** First login with a temporary password: a 6-digit code goes to the staff member's own registered email. Only a holder of that mailbox can continue. */
+function startFirstLogin_(st, email, now) {
+  var msg = { ok: true, verify: true, message: 'We sent a 6-digit code to your email. Enter it to continue. It is valid for 10 minutes.' };
+  var fv = JSON.parse(P.getProperty('fv:' + email) || '{}');
+  if (fv.last && now - fv.last < RESEND_MS && fv.h) return msg;               // 3-minute resend limit
+  var g = JSON.parse(P.getProperty('sendlog') || '[]').filter(function (t) { return now - t < 3600000; });
+  if (g.length >= SEND_GLOBAL_PER_HOUR) return { ok: false, error: 'Too many emails right now. Try again later.' };
+  var code = code6_(); g.push(now);
+  P.setProperty('fv:' + email, JSON.stringify({ h: hash_('fv|' + email + '|' + code), exp: now + OTP_TTL_MS, fails: 0, last: now }));
+  P.setProperty('sendlog', JSON.stringify(g));
+  MailApp.sendEmail(email, 'Prayagi staff first login code', 'Your Prayagi staff verification code is ' + code + '.\nIt works once and expires in 10 minutes. If you did not try to log in, ignore this email and tell the shop owner.');
+  audit_('system', 'first-login code sent', email);
+  return msg;
+}
+function verifyFirstLogin_(b) {
+  var email = norm_(b.email), code = String(b.code || '').replace(/\D/g, ''), now = Date.now(), bad = { ok: false, error: 'Code is wrong or expired.' };
+  var raw = P.getProperty('fv:' + email), st = staffRow_(email);
+  if (!raw || !st || String(st.r[2]) !== 'active' || String(st.r[11]) !== '1' || code.length !== 6) return bad;
+  var fv = JSON.parse(raw);
+  if (!fv.h || now > fv.exp) return bad;
+  if (!same_(fv.h, hash_('fv|' + email + '|' + code))) {
+    fv.fails = (fv.fails || 0) + 1;
+    if (fv.fails >= OTP_MAX_TRIES) { fv.h = ''; fv.exp = 0; }                    // code burned after 3 wrong tries
+    P.setProperty('fv:' + email, JSON.stringify(fv));
+    return bad;
+  }
+  P.deleteProperty('fv:' + email);                                                // single use
+  var token = rand_(32);
+  P.setProperty('sess:' + hash_(token), JSON.stringify({ email: email, role: 'staff', mustChange: true, exp: now + 15 * 60 * 1000, seen: now }));   // restricted: only changePassword works
+  return { ok: true, token: token, role: 'staff', email: email, mustChange: true };
+}
+function changePassword_(b, s) {
+  if (!s.mustChange) return { ok: false, error: 'Not allowed.' };
+  var pw = String(b.password || ''), st = staffRow_(s.email);
+  if (!st) return { ok: false, error: 'Not found.' };
+  if (!pwOk_(pw)) return { ok: false, error: 'Password must be ' + PW_MIN + ' to ' + PW_MAX + ' characters.' };
+  if (pw === String(st.r[4]) || pw === mobile10_(st.r[4]) || same_(String(st.r[6]), pw_(String(st.r[5]), pw))) return { ok: false, error: 'Choose a new password, not the temporary one or your mobile number.' };
+  var salt = rand_(16);
+  st.sh.getRange(st.n, 6).setValue(salt);
+  st.sh.getRange(st.n, 7).setValue(pw_(salt, pw));
+  st.sh.getRange(st.n, 12).setValue('');
+  revokeAll_(s.email);
+  audit_(s.email, 'password changed at first login', s.email);
+  return { ok: true, relogin: true };
 }
 
 function audit_(actor, action, target) { sheet_('Audit').appendRow([new Date(), actor, action, target]); } // never contains codes or passwords
@@ -382,9 +444,12 @@ function setMaster_(b, s) {
   var pw = String(b.password || '');
   if (!/^\d{12}$/.test(pw)) return { ok: false, error: 'The master password must be exactly 12 digits.' };
   var salt = rand_(16);
-  P.setProperty('master', JSON.stringify({ salt: salt, h: masterHash_(salt, pw) }));
+  var h = masterHash_(salt, pw);
+  P.setProperty('master', JSON.stringify({ salt: salt, h: h }));
+  var back = JSON.parse(P.getProperty('master') || '{}');   // read back before saying saved
+  if (back.h !== h) return { ok: false, error: 'Master password could not be saved. Try again.' };
   audit_(s.email, 'master password set', ADMIN);
-  return { ok: true };
+  return { ok: true, saved: true };
 }
 function masterHash_(salt, pw) {
   var h = salt + '|' + pw;

@@ -1,0 +1,11 @@
+var assert = require('assert'), safeNext = require('../staff/next.js').safeNext, O = 'https://prayagi-store-and-services.github.io';
+assert.strictEqual(safeNext('/services/#voter', O), '/services/#voter');
+assert.strictEqual(safeNext(O + '/#availability', O), '/#availability');
+assert.strictEqual(safeNext('https://evil.example/x', O), '');
+assert.strictEqual(safeNext('//evil.example/x', O), '');
+assert.strictEqual(safeNext('/\\evil.example', O), '');
+assert.strictEqual(safeNext('javascript:alert(1)', O), '');
+assert.strictEqual(safeNext('/staff/', O), '');
+assert.strictEqual(safeNext('', O), '');
+assert.strictEqual(safeNext('x'.repeat(400), O), '');
+console.log('next tests passed');

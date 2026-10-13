@@ -14,5 +14,8 @@ jobs:
         with:
           node-version: 20
       - run: node tests/availability.test.js
+      - run: node tests/staff.test.js
+      - run: node tests/next.test.js
+      - run: node --check staff/staff.js
       - run: node -e "const fs=require('fs');new Function(fs.readFileSync('apps-script/Code.gs','utf8')+fs.readFileSync('apps-script/Availability.gs','utf8'))"
       - run: node --check calendar.js
