@@ -88,6 +88,16 @@ assert.strictEqual(call({ action: 'listStaff', token: T }).ok, false);
 var dump = JSON.stringify(ctx.P.getProperties()) + JSON.stringify(sheets);
 ['new-pass-8', 'Temp-pass-1', '123456789012', code, c2].forEach(function (secret) { assert.ok(dump.indexOf(secret) < 0, 'plain secret stored: ' + secret); });
 assert.ok(dump.indexOf(MOB) >= 0 && JSON.stringify(sheets.Audit.rows).indexOf(MOB) < 0, 'mobile only in the Staff row, never in audit');
+// 16. the old invite route cannot bypass the emailed verification of a first-login account
+var inv = call({ action: 'createInvite', token: A, email: E.replace('staff1', 'nobody') });
+call({ action: 'addStaff', token: A, email: 'd@example.com', mobile: '9000000001' });
+assert.strictEqual(call({ action: 'createInvite', token: A, email: 'd@example.com' }).ok, false, 'no invite for first-login account');
+var drow = ctx.staffRow_('d@example.com'); drow.sh.getRange(drow.n, 8).setValue(ctx.hash_('inv|12345678')); drow.sh.getRange(drow.n, 9).setValue(Date.now() + 1e6);   // forged invite state
+assert.strictEqual(call({ action: 'setPassword', email: 'd@example.com', invite: '12345678', password: 'forged-pass-1' }).ok, false, 'invite must not set a password on a first-login account');
+assert.strictEqual(call({ action: 'loginPassword', email: 'd@example.com', password: 'forged-pass-1' }).ok, false);
+// 17. an account that already finished first login can still use the older invite route (admin-initiated reset)
+var ok1 = call({ action: 'createInvite', token: A, email: E }); assert.ok(ok1.ok && ok1.invite);
+assert.ok(call({ action: 'setPassword', email: E, invite: ok1.invite, password: 'second-pass-9' }).ok);
 // 12. no mail ever contains a password
 mails.forEach(function (m) { assert.ok(!m.body.includes(MOB) && !m.body.includes('new-pass-8')); });
 console.log('staff tests passed');
