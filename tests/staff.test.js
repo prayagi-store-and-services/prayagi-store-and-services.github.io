@@ -70,6 +70,24 @@ assert.strictEqual(call({ action: 'loginPassword', email: 'b@example.com', passw
 assert.strictEqual(call({ action: 'masterStatus', token: A }).set, false);
 assert.ok(call({ action: 'setMaster', token: A, password: '123456789012' }).saved);
 assert.strictEqual(call({ action: 'masterStatus', token: A }).set, true);
+// 13. abuse cases: code for another email, expired code, disabled staff, unknown email
+call({ action: 'addStaff', token: A, email: 'c@example.com', mobile: '9123456780' });
+mails.length = 0;
+call({ action: 'loginPassword', email: 'c@example.com', password: '9123456780' });
+var c2 = mails[0].body.match(/code is (\d{6})/)[1];
+assert.strictEqual(call({ action: 'verifyFirstLogin', email: E, code: c2 }).ok, false, 'code of another account must not work');
+assert.strictEqual(call({ action: 'verifyFirstLogin', email: 'nobody@example.com', code: c2 }).ok, false);
+var f2 = JSON.parse(ctx.P.getProperty('fv:c@example.com')); f2.exp = Date.now() - 1; ctx.P.setProperty('fv:c@example.com', JSON.stringify(f2));
+assert.strictEqual(call({ action: 'verifyFirstLogin', email: 'c@example.com', code: c2 }).ok, false, 'expired code');
+assert.strictEqual(call({ action: 'loginPassword', email: 'nobody@example.com', password: MOB }).ok, false);
+call({ action: 'setStaffActive', token: A, email: 'b@example.com', active: false });
+assert.strictEqual(call({ action: 'loginPassword', email: 'b@example.com', password: 'Temp-pass-1' }).ok, false, 'disabled staff');
+// 14. staff-restricted session cannot reach admin actions even if mustChange is cleared (role check)
+assert.strictEqual(call({ action: 'listStaff', token: T }).ok, false);
+// 15. nothing secret is stored in plain form anywhere
+var dump = JSON.stringify(ctx.P.getProperties()) + JSON.stringify(sheets);
+['new-pass-8', 'Temp-pass-1', '123456789012', code, c2].forEach(function (secret) { assert.ok(dump.indexOf(secret) < 0, 'plain secret stored: ' + secret); });
+assert.ok(dump.indexOf(MOB) >= 0 && JSON.stringify(sheets.Audit.rows).indexOf(MOB) < 0, 'mobile only in the Staff row, never in audit');
 // 12. no mail ever contains a password
 mails.forEach(function (m) { assert.ok(!m.body.includes(MOB) && !m.body.includes('new-pass-8')); });
 console.log('staff tests passed');
