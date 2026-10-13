@@ -30,7 +30,7 @@
 
   function masterStatus() {
     if ($('admin').hidden) return;
-    call({ action: 'masterStatus' }).then(function (r) { $('m_status').textContent = r.ok ? (r.set ? 'Master password is set.' : 'Master password is not set yet.') : 'Unavailable'; });
+    call({ action: 'masterStatus' }).then(function (r) { $('m_status').textContent = r.ok ? (r.set ? 'Master password is set and saved. Use the box below only to change it.' : 'Master password is not set yet.') : 'Unavailable'; $('m_set').textContent = r.ok && r.set ? 'Change master password' : 'Save master password'; });
   }
   function refresh() {
     masterStatus();
