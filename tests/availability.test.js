@@ -36,6 +36,6 @@ console.log('availability tests passed');
 // 6. Code.gs: the full start/end interval is checked (a 30 min consulting at 11:45 overlaps a 12:00 booking).
 var code = fs.readFileSync(__dirname + '/../apps-script/Code.gs', 'utf8');
 assert.ok(/durationOf_\(service\)/.test(code) && /toMin_\(k\.start\) < endMin && toMin_\(k\.end\) > mins/.test(code), 'interval overlap check missing');
-assert.ok(/emergency \? 'Requested' : 'Confirmed'/.test(code), 'emergency must stay Requested');
+assert.ok(/\(emergency \|\| durationOf_\(service\) === 30\) \? 'Requested' : 'Confirmed'/.test(code), 'emergency and consulting must stay Requested');
 assert.ok(!/UrlFetchApp|WA_ENABLED = true/.test(code), 'no WhatsApp sending in this change');
 console.log('code guard checks passed');
