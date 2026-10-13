@@ -131,3 +131,5 @@
 
   if (token) call({ action: 'me' }).then(function (r) { if (r.ok) showApp(r.role, r.email); else showLogin(); });
 })();
+
+;(function () { function o() { var d = document.getElementById('firsttime'); if (d && location.hash === '#first-time') { d.open = true; d.scrollIntoView(); } } o(); window.addEventListener('hashchange', o); })();
