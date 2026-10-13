@@ -32,3 +32,10 @@ r = f([{ title: 'T', start: IST('2026-10-12T10:00:00'), end: IST('2026-10-12T11:
 assert.deepStrictEqual(Object.keys(r).sort(), ['blocks', 'closedDays', 'ok', 'updated']);
 Object.keys(r.blocks[0]).forEach(function (k) { assert.ok(['date', 'start', 'end', 'kind'].indexOf(k) >= 0); });
 console.log('availability tests passed');
+
+// 6. Code.gs: the full start/end interval is checked (a 30 min consulting at 11:45 overlaps a 12:00 booking).
+var code = fs.readFileSync(__dirname + '/../apps-script/Code.gs', 'utf8');
+assert.ok(/durationOf_\(service\)/.test(code) && /toMin_\(k\.start\) < endMin && toMin_\(k\.end\) > mins/.test(code), 'interval overlap check missing');
+assert.ok(/emergency \? 'Requested' : 'Confirmed'/.test(code), 'emergency must stay Requested');
+assert.ok(!/UrlFetchApp|WA_ENABLED = true/.test(code), 'no WhatsApp sending in this change');
+console.log('code guard checks passed');
