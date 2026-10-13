@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   // Set to the deployed Apps Script web app URL (ends with /exec) after the owner deploys it. Empty = Unavailable.
-  var BACKEND = '';
+  var BACKEND = 'https://script.google.com/macros/s/AKfycbyAJG3ci-kniagsih7BXHpAPTk5h0-zKujN3Bu2VDyz5yh5fYNRor8GuVGedH1HdPmw/exec';
   var $ = function (id) { return document.getElementById(id); };
   var token = sessionStorage.getItem('pt') || '';   // session only: closing the tab logs out
 
