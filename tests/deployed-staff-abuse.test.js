@@ -6,7 +6,7 @@ LockService:{getScriptLock:()=>({waitLock:()=>state.locks++,releaseLock:()=>{}})
 Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,x)=>crypto.createHash('sha256').update(x).digest(),base64EncodeWebSafe:b=>Buffer.from(b).toString('base64url')},
 MailApp:{getRemainingDailyQuota:()=>state.quota,sendEmail:()=>{state.mails++;}},
 ContentService:{MimeType:{JSON:'json'},createTextOutput:x=>({setMimeType:()=>JSON.parse(x)})},
-};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/staff-patched.gs','utf8'),c);return {c,state};}
+};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/../apps-script/deployed-staff-v1/Code.gs','utf8'),c);return {c,state};}
 function t(name,f){f();n++;console.log('PASS',name)}
 t('malformed/unknown requests never lock or send',()=>{let {c,state}=env();for(const raw of ['{','[]',JSON.stringify({action:'x'})])assert.equal(c.doPost({postData:{contents:raw}}).ok,false);assert.equal(state.locks,0);assert.equal(state.mails,0)});
 t('oversized password rejects before lock',()=>{let {c,state}=env();assert.equal(c.doPost({postData:{contents:JSON.stringify({action:'loginPassword',email:'a@b.com',password:'x'.repeat(2049)})}}).ok,false);assert.equal(state.locks,0)});
