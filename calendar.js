@@ -1,6 +1,22 @@
 (function () {
   'use strict';
   var BACKEND = 'https://script.google.com/macros/s/AKfycbyAJG3ci-kniagsih7BXHpAPTk5h0-zKujN3Bu2VDyz5yh5fYNRor8GuVGedH1HdPmw/exec';
+  var EXTRA_CLOSED = ['2026-10-15', '2026-10-16', '2026-10-17'];
+  var closureText = 'तबीयत ठीक न होने की वजह से 15 से 17 अक्टूबर 2026 तक appointment booking बंद रहेगी।';
+  var form = document.getElementById('booking-form');
+  var todayForClosure = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  if (EXTRA_CLOSED.indexOf(todayForClosure) >= 0 && form) {
+    var notice = document.createElement('p');
+    notice.id = 'temporary-booking-closure'; notice.setAttribute('role', 'status');
+    notice.textContent = closureText;
+    notice.style.cssText = 'padding:16px;border:2px solid #8b3227;border-radius:10px;background:#fff1e8;color:#562015;font-weight:700;line-height:1.7';
+    form.parentNode.insertBefore(notice, form);
+    var fields = form.querySelectorAll('input,select,textarea,button');
+    for (var c = 0; c < fields.length; c++) fields[c].disabled = true;
+    form.addEventListener('submit', function (event) { event.preventDefault(); event.stopImmediatePropagation(); }, true);
+    form.hidden = true;
+    var done = document.getElementById('booking-done'); if (done) done.hidden = true;
+  }
   var box = document.getElementById('availability-days'), note = document.getElementById('availability-note');
   if (!box) return;
   var DAYS = 21, WD = ['रवि', 'सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि'];
@@ -12,7 +28,7 @@
     var today = istToday();
     for (var i = 0; i < DAYS; i++) {
       var iso = addDays(today, i), wd = new Date(iso + 'T00:00:00Z').getUTCDay();
-      var closed = wd === 0 || d.closedDays.indexOf(iso) >= 0;
+      var closed = wd === 0 || d.closedDays.indexOf(iso) >= 0 || EXTRA_CLOSED.indexOf(iso) >= 0;
       var booked = d.blocks.filter(function (b) { return b.date === iso && b.kind === 'booked'; });
       var card = el('div', 'avail-day' + (closed ? ' is-closed' : booked.length ? ' has-booked' : ''));
       card.appendChild(el('strong', null, iso.slice(8) + '/' + iso.slice(5, 7) + ' ' + WD[wd]));
