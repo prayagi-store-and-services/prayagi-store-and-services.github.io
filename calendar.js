@@ -1,8 +1,8 @@
 (function () {
   'use strict';
   var BACKEND = 'https://script.google.com/macros/s/AKfycbyAJG3ci-kniagsih7BXHpAPTk5h0-zKujN3Bu2VDyz5yh5fYNRor8GuVGedH1HdPmw/exec';
-  var EXTRA_CLOSED = ['2026-10-15', '2026-10-17'];
-  var closureText = '17 अक्टूबर 2026 को appointment booking बंद रहेगी।';
+  var EXTRA_CLOSED = ['2026-10-15', '2026-10-17', '2026-11-06', '2026-11-09'];
+  var closureText = 'आज appointment booking बंद रहेगी।';
   var form = document.getElementById('booking-form');
   var todayForClosure = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
   if (EXTRA_CLOSED.indexOf(todayForClosure) >= 0 && form) {
