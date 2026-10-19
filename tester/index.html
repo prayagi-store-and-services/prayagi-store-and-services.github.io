@@ -1,0 +1,89 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>App Testing Portal | Prayagi Store &amp; Services</title><meta name="description" content="Official task board and test-report channel for the external tester of Netra Eco apps by Prayagi Store & Services."><meta name="theme-color" content="#12365c"><style>
+:root{--blue:#12365c;--teal:#187a4c;--saffron:#e8a828;--ink:#20354a;--ink2:#526477;--line:#dce5ec}
+*{box-sizing:border-box}body{margin:0;background:#edf2f8;font-family:Arial,"Noto Sans Devanagari",sans-serif;color:var(--ink);line-height:1.65}
+main{width:min(880px,100%);margin:auto;background:#fff;display:flex;flex-direction:column}
+header{background:var(--blue);color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:24px;line-height:1.3}
+header p{margin:6px 0 0;color:#cfdcec;font-size:14px}
+section{padding:20px 24px;border-bottom:1px solid var(--line)}
+h2{font-size:19px;color:var(--blue);margin:0 0 12px}
+p{margin:0 0 10px}
+ol,ul{margin:0 0 10px;padding-left:22px}li{margin-bottom:6px}
+.rules{background:#fdf6e4;border:1px solid #ead9a8;border-left:4px solid var(--saffron);padding:14px 16px;border-radius:6px}
+.rules strong{color:#7a5b00}
+.stamp{font-size:13px;color:var(--ink2);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+th{background:#eef3f9;color:var(--blue)}
+.empty{color:var(--ink2);font-style:italic}
+.copybox{background:#f2f7f3;border:1px solid #cfe3d6;border-radius:6px;padding:14px 16px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+form{display:grid;gap:14px}
+label{font-weight:600;font-size:14px;display:block;margin-bottom:4px}
+input,select,textarea{font:inherit;padding:10px 12px;border:1px solid #b9c6d2;border-radius:6px;width:100%;background:#fff;color:var(--ink)}
+textarea{min-height:160px;resize:vertical}
+.hint{font-weight:400;font-size:13px;color:var(--ink2)}
+button{background:var(--teal);color:#fff;border:0;padding:13px 20px;font:inherit;font-weight:700;border-radius:6px;cursor:pointer;font-size:16px}
+button:disabled{opacity:.6}
+#form-msg{font-weight:600}
+footer{padding:16px 24px;font-size:13px;color:var(--ink2)}
+footer a{color:#165b8c}
+@media(max-width:600px){header h1{font-size:20px}section{padding:16px}th,td{padding:8px;font-size:13px}}
+</style></head><body><main>
+<header><h1>App Testing Portal</h1><p>Prayagi Store &amp; Services &middot; Netra Eco apps &middot; External tester task board and report channel</p></header>
+<section>
+<h2>Rules for the tester</h2>
+<div class="rules"><ol>
+<li><strong>Tasks are assigned only on this page.</strong> If a task is not listed under &ldquo;Current tasks&rdquo; below, it is not assigned.</li>
+<li><strong>Test reports are accepted only through the report form on this page.</strong> Reports sent by email, chat, or any other channel are not accepted.</li>
+<li>Every report must name its Task ID exactly as listed on this page.</li>
+</ol></div>
+</section>
+<section id="tasks">
+<h2>Current tasks</h2>
+<p class="stamp">Last updated: 19 October 2026, 11:32 PM IST</p>
+<table><thead><tr><th>Task ID</th><th>App &amp; version</th><th>What to test</th><th>Status</th></tr></thead>
+<tbody><tr><td><strong>TASK-20261019-01</strong><br>(PORTAL TEST)</td><td>N/A - portal test (no real app)</td><td>This task only checks that the portal works end to end. Steps: 1) Read the rules at the top of this page. 2) Write a short sample report in the exact format of the report form below: Task ID = TASK-20261019-01, App and version tested = "N/A - portal test", Overall result = your choice, Testing environment = where you are running, and a few lines describing what you did. 3) The developer will paste your report into the form below and submit it.</td><td>Active</td></tr></tbody></table>
+</section>
+<section>
+<h2>How a testing session works</h2>
+<ol>
+<li>The developer (Deepak Kushwaha) shares this page&rsquo;s link in the tester&rsquo;s chat, along with the starter message below.</li>
+<li>The tester opens this page and reads the rules and the current task list.</li>
+<li>The tester performs the task and writes a complete report: what was tested, what passed, what failed, and exact steps to reproduce every issue.</li>
+<li>The report is submitted through the form at the bottom of this page. AI chat assistants cannot click or submit web forms on their own, so the developer pastes the tester&rsquo;s report text into the form. This takes under a minute.</li>
+<li>The report reaches the team by email and the tester is told the result in the next chat session.</li>
+</ol>
+</section>
+<section>
+<h2>Starter message to paste into the tester&rsquo;s chat</h2>
+<div class="copybox">You are the external tester for Netra Eco apps by Prayagi Store &amp; Services. Open this page and read it fully: https://prayagi-store-and-services.github.io/tester/ &mdash; it is your only task board and your only report channel. All tasks are assigned only on that page, and every test report you write must follow the report rules stated there. Tell me what tasks and rules you see on the page.</div>
+</section>
+<section id="report">
+<h2>Submit a test report</h2>
+<form id="report-form" action="https://formsubmit.co/prayagideepak@gmail.com" method="POST">
+<input type="hidden" name="_subject" value="[Tester Report] Netra Eco app testing">
+<input type="hidden" name="_template" value="table">
+<input type="hidden" name="_captcha" value="false">
+<input type="hidden" name="_next" value="https://prayagi-store-and-services.github.io/tester/#report">
+<div><label for="f-task">Task ID <span class="hint">(exactly as listed above, e.g. TASK-20261019-01)</span></label><input id="f-task" name="task_id" required></div>
+<div><label for="f-app">App and version tested <span class="hint">(e.g. Battery Sentinel Pro Netra v2.1.18)</span></label><input id="f-app" name="app_version" required></div>
+<div><label for="f-result">Overall result</label><select id="f-result" name="result" required><option value="">Choose one</option><option>Pass</option><option>Pass with issues</option><option>Fail</option><option>Blocked - could not test</option></select></div>
+<div><label for="f-env">Testing environment <span class="hint">(device / emulator / browser and OS)</span></label><input id="f-env" name="environment"></div>
+<div><label for="f-report">Full report <span class="hint">(paste the tester&rsquo;s complete report here: what was tested, results, issues with exact steps to reproduce)</span></label><textarea id="f-report" name="full_report" required></textarea></div>
+<div><label for="f-by">Submitted by</label><input id="f-by" name="submitted_by" value="Gemini (external tester)"></div>
+<div><button type="submit" id="f-submit">Send report</button></div>
+<p id="form-msg" role="status"></p>
+</form>
+</section>
+<footer>Maintained by <a href="https://prayagi-store-and-services.github.io/">Prayagi Store &amp; Services</a> &middot; <a href="https://prayagi-store-and-services.github.io/netra-eco/">Netra Eco</a> &middot; Developer: Deepak Kushwaha</footer>
+<script>
+(function(){var f=document.getElementById("report-form"),m=document.getElementById("form-msg"),b=document.getElementById("f-submit");
+f.addEventListener("submit",function(e){e.preventDefault();b.disabled=true;b.textContent="Sending...";m.textContent="";
+var fd=new FormData(f);fd.delete("_next");
+var data={};fd.forEach(function(v,k){data[k]=v});
+data._subject="[Tester Report] "+(data.task_id||"Netra Eco app testing");
+fetch("https://formsubmit.co/ajax/prayagideepak@gmail.com",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify(data)}).then(function(r){return r.json()}).then(function(){m.textContent="Report sent. Thank you - the team has received it by email.";f.reset();document.getElementById("f-by").value="Gemini (external tester)"}).catch(function(){m.textContent="Could not send right now. Please try again in a minute."}).finally(function(){b.disabled=false;b.textContent="Send report"})});
+})();
+</script>
+</main>
+</body></html>
