@@ -1,0 +1,86 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aistudio.batterysentinel.ntra",
+      "sha256_cert_fingerprints": [
+        "54:3B:46:40:22:06:AE:00:22:D3:52:F6:5B:EA:61:83:86:BD:7A:A6:81:B4:D5:BC:FB:5C:E0:2B:AC:49:C8:C4"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aistudio.reasoningquiz.tark",
+      "sha256_cert_fingerprints": [
+        "54:3B:46:40:22:06:AE:00:22:D3:52:F6:5B:EA:61:83:86:BD:7A:A6:81:B4:D5:BC:FB:5C:E0:2B:AC:49:C8:C4"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aistudio.netrasensorhub.kxmpzq",
+      "sha256_cert_fingerprints": [
+        "54:3B:46:40:22:06:AE:00:22:D3:52:F6:5B:EA:61:83:86:BD:7A:A6:81:B4:D5:BC:FB:5C:E0:2B:AC:49:C8:C4"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aistudio.sensorguard.prvsec",
+      "sha256_cert_fingerprints": [
+        "54:3B:46:40:22:06:AE:00:22:D3:52:F6:5B:EA:61:83:86:BD:7A:A6:81:B4:D5:BC:FB:5C:E0:2B:AC:49:C8:C4"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.prayagi.netratrikaal",
+      "sha256_cert_fingerprints": [
+        "38:BA:D1:B7:11:7F:9C:D9:4F:8D:E9:4E:2C:90:50:86:1B:6C:7B:48:2C:E4:24:1B:FB:9B:4B:F3:C8:9F:B8:D8"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.prayagi.netraplayer",
+      "sha256_cert_fingerprints": [
+        "54:3B:46:40:22:06:AE:00:22:D3:52:F6:5B:EA:61:83:86:BD:7A:A6:81:B4:D5:BC:FB:5C:E0:2B:AC:49:C8:C4"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.prayagi.netraeco",
+      "sha256_cert_fingerprints": [
+        "54:3B:46:40:22:06:AE:00:22:D3:52:F6:5B:EA:61:83:86:BD:7A:A6:81:B4:D5:BC:FB:5C:E0:2B:AC:49:C8:C4"
+      ]
+    }
+  }
+]
