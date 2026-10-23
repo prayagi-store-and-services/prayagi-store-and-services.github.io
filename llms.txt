@@ -1,0 +1,10 @@
+# Prayagi Store & Services (प्रयागी जन सेवा केंद्र)
+
+> Naini, Prayagraj (Uttar Pradesh, India) में एक जन सेवा केंद्र: PAN कार्ड, रेल टिकट, बीमा और अन्य डिजिटल सेवाओं में सहायता। Developer: Deepak Kushwaha.
+
+## Pages
+- [Home](https://prayagi-store-and-services.github.io/): सेवाएँ, बुकिंग, दस्तावेज़ सूची, FAQ और संपर्क।
+
+## Related
+- [Netra Ecosystem](https://prayagi-store-and-services.github.io/netra-eco/): free Android apps by the same developer.
+- [Meet the Team](https://prayagi-store-and-services.github.io/meet-the-team/): company profile.
