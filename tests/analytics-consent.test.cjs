@@ -17,6 +17,6 @@ for(const [saved,action,count] of [[null,null,0],['no',null,0],[null,'No thanks'
  assert(!r.requests.some(u=>/clarity/.test(u)));
  assert.equal(r.window.clarity,undefined);
  if(count)assert(r.requests[0].startsWith('https://www.googletagmanager.com/gtag/js?id=G-'));
- if(r.nodes.length)assert.equal(r.nodes[0].children[0].children[0].href,'https://netraeco.dpdns.org/legal/data-safety.html');
+ if(r.nodes.length)assert.equal(r.nodes[0].children[0].children[0].href,'https://prayagi-store-and-services.github.io/netra-eco/legal/data-safety.html');
 }
 console.log('PASS fresh/accept/decline/returning consent, absolute privacy URL, no Clarity on any page (including future forms)');
