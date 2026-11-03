@@ -2,13 +2,18 @@
    Loads NOTHING until the visitor taps Accept. The choice is remembered on this
    device (localStorage "netra_analytics_consent" = "yes" | "no"); choosing
    "No thanks" loads nothing, ever. Clarity runs with strict masking; form fields
-   carry data-clarity-mask. Privacy policy: /legal/data-safety.html */
+   carry data-clarity-mask. Clarity is fail-closed (disabled) pending exclusion validation. */
 (function () {
   "use strict";
 
   /* ---- configuration (same values on every Netra site) ---- */
   var GA4_MEASUREMENT_ID = "G-G0LT31839L";
   var CLARITY_PROJECT_ID = "z7sg7c01gf";
+
+  // Fail closed on every page, including forms inserted later.
+  // Re-enable only after a reviewed page-level recording-exclusion design.
+  var CLARITY_ENABLED = false;
+  var PRIVACY_URL = "https://netraeco.dpdns.org/legal/data-safety.html";
 
   var KEY = "netra_analytics_consent";
 
@@ -27,6 +32,8 @@
     window.gtag("js", new Date());
     window.gtag("config", GA4_MEASUREMENT_ID, { anonymize_ip: true });
 
+    // No Clarity request, queue or recording while the exclusion gate is unverified.
+    if (!CLARITY_ENABLED) return;
     /* Microsoft Clarity (strict masking is set in the project dashboard) */
     window.clarity = window.clarity || function () {
       (window.clarity.q = window.clarity.q || []).push(arguments);
@@ -58,11 +65,11 @@
       "font:14px/1.5 system-ui,sans-serif;text-align:center";
     var text = document.createElement("span");
     text.textContent =
-      "With your OK, this site uses Google Analytics 4 and Microsoft Clarity " +
-      "(input masking on) to understand visits and improve the apps. " +
+      "With your OK, this site uses Google Analytics 4 to understand visits. " +
+      "Microsoft Clarity recording is currently disabled. " +
       "They load only after you accept. ";
     var link = document.createElement("a");
-    link.href = "/legal/data-safety.html";
+    link.href = PRIVACY_URL;
     link.textContent = "How Netra uses data";
     link.style.cssText = "color:#7fd6a8";
     text.appendChild(link);
