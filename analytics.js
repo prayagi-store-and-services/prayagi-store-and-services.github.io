@@ -13,7 +13,7 @@
   // Fail closed on every page, including forms inserted later.
   // Re-enable only after a reviewed page-level recording-exclusion design.
   var CLARITY_ENABLED = false;
-  var PRIVACY_URL = "https://netraeco.dpdns.org/legal/data-safety.html";
+  var PRIVACY_URL = "https://prayagi-store-and-services.github.io/netra-eco/legal/data-safety.html";
 
   var KEY = "netra_analytics_consent";
 
