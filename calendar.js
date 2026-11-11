@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var BACKEND = 'https://script.google.com/macros/s/AKfycbyAJG3ci-kniagsih7BXHpAPTk5h0-zKujN3Bu2VDyz5yh5fYNRor8GuVGedH1HdPmw/exec';
-  var EXTRA_CLOSED = ['2026-10-15', '2026-10-17', '2026-11-06', '2026-11-09'];
+  var EXTRA_CLOSED = ['2026-10-15', '2026-10-17', '2026-11-06', '2026-11-09', '2026-11-12'];
   var closureText = 'आज appointment booking बंद रहेगी।';
   var form = document.getElementById('booking-form');
   var todayForClosure = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
