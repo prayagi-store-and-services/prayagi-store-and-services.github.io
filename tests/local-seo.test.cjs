@@ -1,0 +1,10 @@
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8');
+assert.equal((html.match(/rel="canonical"/g)||[]).length,1);
+const schema=JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+assert.equal(schema['@type'],'LocalBusiness');assert.equal(schema.telephone,'+91-532-2972822');
+assert.equal(schema.hasOfferCatalog.itemListElement.length,4);assert.equal(schema.openingHoursSpecification.length,2);
+assert(!schema.aggregateRating);assert(!schema.review);assert(!/wa\.me|tel:\+?919235939809|9336557781/.test(html));
+const withoutUpi=html.replace(/9235939809@okbizaxis/g,'UPI_PRESERVED');assert(!withoutUpi.includes('9235939809'));assert(html.includes('9235939809@okbizaxis'));
+assert(html.includes('local-services-title'));for(const term of ['PAN card','Passport','Train ticket','Car &amp; bike insurance'])assert(html.includes(term));
+assert.equal(schema.url,'https://prayagi-store-and-services.github.io/');console.log('local SEO metadata, truth boundaries and public-contact checks passed');

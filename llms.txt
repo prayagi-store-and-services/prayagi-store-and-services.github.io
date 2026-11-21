@@ -1,10 +1,18 @@
 # Prayagi Store & Services (प्रयागी जन सेवा केंद्र)
 
-> Naini, Prayagraj (Uttar Pradesh, India) में एक जन सेवा केंद्र: PAN कार्ड, रेल टिकट, बीमा और अन्य डिजिटल सेवाओं में सहायता। Developer: Deepak Kushwaha.
+> Local application, travel and insurance assistance in Naini, Prayagraj, Uttar Pradesh, India.
 
-## Pages
-- [Home](https://prayagi-store-and-services.github.io/): सेवाएँ, बुकिंग, दस्तावेज़ सूची, FAQ और संपर्क।
+## Services
+- PAN card application: help with online application forms and document preparation.
+- Passport application assistance: help with forms and preparation, not a passport-issuing office.
+- IRCTC train ticket booking through CSC, subject to availability and booking rules.
+- Car and bike insurance information and assistance through Turtlemint POSP, subject to insurer terms.
+- Other services and document guidance are on the homepage.
 
-## Related
-- [Netra Ecosystem](https://prayagi-store-and-services.github.io/netra-eco/): free Android apps by the same developer.
-- [Meet the Team](https://prayagi-store-and-services.github.io/meet-the-team/): company profile.
+## Visit and contact
+- Shop No 2, Vinod Mehra Market, Sangam Road, Near Arail Prathmik Vidyalaya, Naini, Prayagraj 211008.
+- Monday-Saturday: 09:30-14:00 and 16:30-20:00. Sunday closed.
+- Phone: 0532-2972822. Email: prayagijanseva@gmail.com.
+- [Home](https://prayagi-store-and-services.github.io/): services, document guidance, request form, hours and contact.
+
+Approval, processing time, confirmed train seats and insurance claims are not guaranteed. Confirm current charges and requirements with the shop.
