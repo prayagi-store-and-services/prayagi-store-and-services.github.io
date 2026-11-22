@@ -1,0 +1,17 @@
+'use strict';
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const html = fs.readFileSync('index.html', 'utf8');
+const legacy = fs.readFileSync('site.js', 'utf8');
+assert(!/id="voter-drive"|VOTER ID DRIVE|Drive 31 October 2026|data-drive/.test(html), 'Expired drive markup/timer must be removed');
+assert(!/wa\.me|api\.whatsapp\.com/.test(html + legacy), 'No mobile WhatsApp routes');
+assert(html.includes('href="tel:+915322972822"'), 'Landline contact link');
+assert(html.includes('9235939809@okbizaxis'), 'Payment identifier is deliberately preserved');
+assert(html.includes('src="assets/upi-qr.jpg"'), 'Payment QR is deliberately preserved');
+const nonpayment = html.replaceAll('9235939809@okbizaxis', 'PAYMENT_ID');
+assert(!/9235939809|9336557781/.test(nonpayment), 'No owner mobile in contact copy');
+assert(!html.includes('POSP Registration (owner-stated)'), 'Retain approved POSP mobile-row removal');
+assert(legacy.includes("const contactPhone = 'tel:+915322972822'"));
+assert(!html.includes('2700'), 'Old passport price removed from all homepage locations');
+assert.equal((html.match(/₹3000/g) || []).length, 3, 'New price in option, service section and dynamic charge note');
+console.log('homepage contact, passport price and expired-drive tests passed');
