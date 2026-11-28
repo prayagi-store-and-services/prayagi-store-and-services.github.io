@@ -8,7 +8,8 @@ function scenario(saved, action){
  const document={readyState:'complete',head:{appendChild(n){requests.push(n.src);}},body:{appendChild(n){nodes.push(n);}},createElement,getElementById(){return null;},querySelectorAll(){return []}};
  const window={};
  vm.runInNewContext(source,{window,document,localStorage:{getItem:k=>store[k]||null,setItem:(k,v)=>store[k]=v},Date,encodeURIComponent});
- if(action) nodes[0].children.find(n=>n.textContent===action).click();
+ function findText(n,t){if(!n)return null;if(n.textContent===t)return n;for(const c of (n.children||[])){const f=findText(c,t);if(f)return f;}return null;}
+ if(action) findText(nodes[0],action).click();
  return {requests,nodes,window};
 }
 for(const [saved,action,count] of [[null,null,0],['no',null,0],[null,'No thanks',0],[null,'Accept',1],['yes',null,1]]){

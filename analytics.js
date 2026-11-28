@@ -64,6 +64,7 @@
       "align-items:center;justify-content:center;" +
       "font:14px/1.5 system-ui,sans-serif;text-align:center";
     var text = document.createElement("span");
+    text.style.cssText = "max-width:62ch;display:inline-block";
     text.textContent =
       "With your OK, this site uses Google Analytics 4 to understand visits. " +
       "Microsoft Clarity recording is currently disabled. " +
@@ -97,9 +98,12 @@
       try { localStorage.setItem(KEY, "no"); } catch (e) {}
       bar.remove();
     });
+    var btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:10px;flex-wrap:nowrap;justify-content:center";
+    btnRow.appendChild(yes);
+    btnRow.appendChild(no);
     bar.appendChild(text);
-    bar.appendChild(yes);
-    bar.appendChild(no);
+    bar.appendChild(btnRow);
     document.body.appendChild(bar);
   }
 
